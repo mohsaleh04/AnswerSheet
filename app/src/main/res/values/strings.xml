@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">پاسخنامه</string>
+    <string name="ok_done">باشه؛ مشکلی نیست</string>
+    <string name="app_permission_title">نیازمند مجوز دسترسی</string>
+    <string name="app_permission_notification">برای نمایش یک سری اعلان، نیازمند دریافت مجوز انتشار اعلان هستیم.</string>
+</resources>
