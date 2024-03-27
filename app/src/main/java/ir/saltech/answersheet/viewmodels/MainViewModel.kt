@@ -35,4 +35,14 @@ class MainViewModel : ViewModel() {
         }
     }
 
+    fun setupBackStrategy(page: App.Page, onPageChanged: (App.Page) -> Unit) {
+        backPressedListener = object : OnBackPressedListener {
+            override fun onBackPressed(): Boolean {
+                return when(page) {
+                    App.Page.Home -> true
+                }
+            }
+        }
+    }
+
 }
