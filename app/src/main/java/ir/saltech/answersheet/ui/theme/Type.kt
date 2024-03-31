@@ -41,14 +41,14 @@ val Typography = Typography(
     displayMedium = TextStyle(
         fontFamily = Estedad,
         fontWeight = FontWeight.Normal,
-        fontSize = 24.sp,
+        fontSize = 26.sp,
         lineHeight = 32.sp,
         letterSpacing = 0.5.sp
     ),
     displaySmall = TextStyle(
         fontFamily = Estedad,
         fontWeight = FontWeight.Normal,
-        fontSize = 26.sp,
+        fontSize = 24.sp,
         lineHeight = 32.sp,
         letterSpacing = 0.5.sp
     ),
@@ -62,7 +62,14 @@ val Typography = Typography(
     bodyMedium = TextStyle(
         fontFamily = Estedad,
         fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
+        letterSpacing = 0.5.sp
+    ),
+    bodySmall = TextStyle(
+        fontFamily = Estedad,
+        fontWeight = FontWeight.Normal,
+        fontSize = 14.sp,
         lineHeight = 20.sp,
         letterSpacing = 0.5.sp
     ),
