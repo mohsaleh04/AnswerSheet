@@ -16,24 +16,24 @@ sealed class MainNavItem(
     data object Settings:
             MainNavItem(
                 "تنظیمات",
-                R.drawable.baseline_settings_24
+                R.drawable.settings
             )
 
     data object StudyRoom:
         MainNavItem(
             "اتاق مطالعه",
-            R.drawable.baseline_study_room_24
+            R.drawable.room_study
         )
 
     data object ExamRoom:
         MainNavItem(
             "اتاق آزمون",
-            R.drawable.baseline_exam_room_24
+            R.drawable.room_exam
         )
 
     data object Home :
         MainNavItem(
             "خانه",
-            R.drawable.baseline_home_24
+            R.drawable.home
         )
 }
