@@ -14,7 +14,7 @@ object App {
     }
 
     enum class Page {
-        Home
+        Home, NewExam
     }
 
 //    fun getUserProfile(context: Context): User {

@@ -13,19 +13,19 @@ sealed class MainNavItem(
     var icon: Int,
 ) {
 
-    data object Settings:
-            MainNavItem(
-                "تنظیمات",
-                R.drawable.settings
-            )
+    data object Settings :
+        MainNavItem(
+            "تنظیمات",
+            R.drawable.settings
+        )
 
-    data object StudyRoom:
+    data object StudyRoom :
         MainNavItem(
             "اتاق مطالعه",
             R.drawable.room_study
         )
 
-    data object ExamRoom:
+    data object ExamRoom :
         MainNavItem(
             "اتاق آزمون",
             R.drawable.room_exam

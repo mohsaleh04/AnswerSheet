@@ -15,7 +15,7 @@ class MainViewModel : ViewModel() {
     @SuppressLint("StaticFieldLeak")
     internal lateinit var context: Context
 
-    lateinit var backPressedListener: OnBackPressedListener
+    private lateinit var backPressedListener: OnBackPressedListener
 
     var page: App.Page = App.Page.Home
         set(value) {
@@ -38,8 +38,13 @@ class MainViewModel : ViewModel() {
     fun setupBackStrategy(page: App.Page, onPageChanged: (App.Page) -> Unit) {
         backPressedListener = object : OnBackPressedListener {
             override fun onBackPressed(): Boolean {
-                return when(page) {
-                    App.Page.Home -> true
+                when(page) {
+                    App.Page.Home ->
+                        return true
+                    App.Page.NewExam -> {
+                        onPageChanged(App.Page.Home)
+                        return false
+                    }
                 }
             }
         }

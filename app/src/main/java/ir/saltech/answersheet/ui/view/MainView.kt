@@ -80,17 +80,13 @@ fun MainView(
     onPageChanged: (App.Page) -> Unit
 ) {
     var selectedMainPage: MainNavItem by remember { mutableStateOf(MainNavItem.ExamRoom) }
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        bottomBar = {
-            MainBottomNav(selected = selectedMainPage) {
-                selectedMainPage = it
-            }
+    Scaffold(modifier = Modifier.fillMaxSize(), bottomBar = {
+        MainBottomNav(selected = selectedMainPage) {
+            selectedMainPage = it
         }
-    ) {
+    }) {
         Box(
-            modifier = Modifier
-                .fillMaxSize()
+            modifier = Modifier.fillMaxSize()
         ) {
             AnimatedVisibility(
                 modifier = Modifier.fillMaxSize(),
@@ -108,8 +104,7 @@ fun MainView(
             ) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        "در دست ساخت ...",
-                        style = MaterialTheme.typography.displayMedium.copy(
+                        "در دست ساخت ...", style = MaterialTheme.typography.displayMedium.copy(
                             textDirection = TextDirection.Rtl,
                             color = MaterialTheme.colorScheme.secondary
                         )
@@ -131,10 +126,7 @@ fun MainView(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SettingsView(
-    padding: PaddingValues,
-    user: User?,
-    page: App.Page,
-    onPageChanged: (App.Page) -> Unit
+    padding: PaddingValues, user: User?, page: App.Page, onPageChanged: (App.Page) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -146,7 +138,8 @@ fun SettingsView(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 16.dp), contentAlignment = Alignment.Center
+                    .padding(vertical = 16.dp),
+                contentAlignment = Alignment.Center
             ) {
                 if (user != null) {
                     Row(
@@ -185,7 +178,8 @@ fun SettingsView(
                         }
                         IconButton(modifier = Modifier
                             .padding(16.dp)
-                            .weight(0.3f), onClick = { /* TODO */ }) {
+                            .weight(0.3f),
+                            onClick = { /* TODO */ }) {
                             Icon(
                                 imageVector = Icons.Outlined.Create,
                                 contentDescription = "Edit User"
@@ -220,9 +214,7 @@ fun SettingsView(
 
             }
             SettingsOption(
-                icon = R.drawable.exam_names,
-                title = "نام آزمون ها",
-                showDivider = false
+                icon = R.drawable.exam_names, title = "نام آزمون ها", showDivider = false
             ) {
 
             }
@@ -233,8 +225,7 @@ fun SettingsView(
                     .background(MaterialTheme.colorScheme.surfaceContainer)
             )
             SettingsOption(
-                icon = R.drawable.settings_notifications,
-                title = "اعلان های شروع آزمون"
+                icon = R.drawable.settings_notifications, title = "اعلان های شروع آزمون"
             ) {
 
             }
@@ -282,13 +273,7 @@ fun ExamsNavView(padding: PaddingValues, page: App.Page, onPageChanged: (App.Pag
             .padding(padding)
             .scrollable(rememberScrollState(), Orientation.Vertical)
     ) {
-        Text(
-            modifier = Modifier
-                .padding(16.dp)
-                .align(Alignment.CenterHorizontally),
-            text = "آزمون ها",
-            style = MaterialTheme.typography.displayMedium
-        )
+        TitleBar(modifier = Modifier.padding(16.dp), title = "آزمون ها")
 
         LazyVerticalStaggeredGrid(
             modifier = Modifier

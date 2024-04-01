@@ -1,5 +1,8 @@
 package ir.saltech.answersheet.ui.view
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -10,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.grid.LazyGridItemScope
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.material.icons.Icons
@@ -36,13 +40,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDirection
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -52,6 +59,7 @@ import ir.saltech.answersheet.R
 import ir.saltech.answersheet.dto.ui.ExamTypesItem
 import ir.saltech.answersheet.dto.ui.MainNavItem
 import ir.saltech.answersheet.dto.ui.navItems
+import ir.saltech.answersheet.ui.theme.AnswerSheetTheme
 import ir.saltech.answersheet.ui.theme.Symbols
 import ir.saltech.answersheet.viewmodels.MainViewModel
 
@@ -142,35 +150,31 @@ fun PermissionAlert(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun TitleBar(page: App.Page, title: String, mainViewModel: MainViewModel = viewModel()) {
+fun TitleBar(modifier: Modifier = Modifier, title: String, showBack: Boolean = false, mainViewModel: MainViewModel = viewModel()) {
     Row(
-        modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center
+        modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround, verticalAlignment = Alignment.CenterVertically
     ) {
-        if (page != App.Page.Home) {
-            Spacer(modifier = Modifier.fillMaxWidth(fraction = 0.125f))
-            Text(
-                text = title,
-                style = MaterialTheme.typography.displayLarge,
-                textAlign = TextAlign.Center
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-            IconButton(modifier = Modifier.padding(top = 8.dp),
+        if (showBack) {
+            Spacer(modifier = Modifier.fillMaxWidth(fraction = 0.1f))
+        }
+        Text(
+            modifier = Modifier.width(185.dp).basicMarquee(),
+            text = title,
+            style = MaterialTheme.typography.displayMedium,
+            textAlign = TextAlign.Center,
+            maxLines = 1
+        )
+        if (showBack) {
+            IconButton(
+                modifier = Modifier.width(35.dp).height(35.dp).padding(top = 3.dp, end = 5.dp),
                 onClick = { mainViewModel.onBackPressed() }) {
                 Icon(
-                    modifier = Modifier
-                        .height(30.dp)
-                        .width(30.dp),
-                    imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                    painter = painterResource(id = R.drawable.arrow_back),
                     contentDescription = null
                 )
             }
-        } else {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.displayLarge,
-                textAlign = TextAlign.Center
-            )
         }
     }
 }
@@ -197,28 +201,17 @@ fun MainBottomNav(selected: MainNavItem, onItemSelected: (MainNavItem) -> Unit) 
 
 @Composable
 fun RowScope.MainBottomNavItem(
-    itemSpec: MainNavItem,
-    selected: Boolean,
-    enabled: Boolean = true,
-    onItemSelected: () -> Unit
+    itemSpec: MainNavItem, selected: Boolean, enabled: Boolean = true, onItemSelected: () -> Unit
 ) {
-    NavigationBarItem(
-        label = {
-            Text(text = itemSpec.title)
-        },
-        icon = {
-            Icon(
-                painterResource(id = itemSpec.icon),
-                contentDescription = itemSpec.title
-            )
-        },
-        enabled = enabled,
-        selected = selected,
-        alwaysShowLabel = true,
-        onClick = {
-            onItemSelected()
-        }
-    )
+    NavigationBarItem(label = {
+        Text(text = itemSpec.title)
+    }, icon = {
+        Icon(
+            painterResource(id = itemSpec.icon), contentDescription = itemSpec.title
+        )
+    }, enabled = enabled, selected = selected, alwaysShowLabel = true, onClick = {
+        onItemSelected()
+    })
 }
 
 @Composable
@@ -238,8 +231,20 @@ fun LazyGridItemScope.ExamNavCard(examTypeItem: ExamTypesItem, onClick: () -> Un
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Icon(modifier = if (examTypeItem in arrayOf(ExamTypesItem.Started, ExamTypesItem.Suspended)) Modifier.scale(1.35f) else Modifier, painter = painterResource(id = examTypeItem.icon), contentDescription = null)
-            Spacer(modifier = if (examTypeItem in arrayOf(ExamTypesItem.Started, ExamTypesItem.Suspended)) Modifier.height(6.dp) else Modifier.height(12.dp))
+            Icon(
+                modifier = if (examTypeItem in arrayOf(
+                        ExamTypesItem.Started, ExamTypesItem.Suspended
+                    )
+                ) Modifier.scale(1.35f) else Modifier,
+                painter = painterResource(id = examTypeItem.icon),
+                contentDescription = null
+            )
+            Spacer(
+                modifier = if (examTypeItem in arrayOf(
+                        ExamTypesItem.Started, ExamTypesItem.Suspended
+                    )
+                ) Modifier.height(6.dp) else Modifier.height(12.dp)
+            )
             Text(
                 text = examTypeItem.title,
                 style = LocalTextStyle.current.copy(textAlign = TextAlign.Center)
@@ -250,15 +255,24 @@ fun LazyGridItemScope.ExamNavCard(examTypeItem: ExamTypesItem, onClick: () -> Un
 
 @Composable
 fun SettingsOption(icon: Int, title: String, showDivider: Boolean = true, onClick: () -> Unit) {
-    Row (modifier = Modifier
+    Row(modifier = Modifier
         .padding(top = 3.dp)
         .clickable { onClick() }) {
-        Row (modifier = Modifier
-            .fillMaxWidth()
-            .padding(24.dp), horizontalArrangement = Arrangement.Start, verticalAlignment = Alignment.CenterVertically) {
-            Icon (modifier = Modifier.padding(start = 8.dp)
-                .width(35.dp)
-                .height(35.dp), painter = painterResource(id = icon), contentDescription = null)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            horizontalArrangement = Arrangement.Start,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                modifier = Modifier
+                    .padding(start = 8.dp)
+                    .width(35.dp)
+                    .height(35.dp),
+                painter = painterResource(id = icon),
+                contentDescription = null
+            )
             Spacer(modifier = Modifier.width(16.dp))
             Text(text = title, style = MaterialTheme.typography.bodyLarge.copy(fontSize = 18.sp))
         }
