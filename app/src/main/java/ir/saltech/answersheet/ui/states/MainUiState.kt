@@ -1,4 +1,4 @@
-package ir.saltech.answersheet.viewmodels
+package ir.saltech.answersheet.ui.states
 
 import ir.saltech.answersheet.App
 

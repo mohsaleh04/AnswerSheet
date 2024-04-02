@@ -1,10 +1,18 @@
 package ir.saltech.answersheet.ui.view
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -13,11 +21,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.grid.LazyGridItemScope
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CornerSize
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
@@ -32,36 +38,167 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import ir.saltech.answersheet.App
 import ir.saltech.answersheet.R
+import ir.saltech.answersheet.dto.ui.Digit
 import ir.saltech.answersheet.dto.ui.ExamTypesItem
 import ir.saltech.answersheet.dto.ui.MainNavItem
+import ir.saltech.answersheet.dto.ui.compareTo
 import ir.saltech.answersheet.dto.ui.navItems
-import ir.saltech.answersheet.ui.theme.AnswerSheetTheme
+import ir.saltech.answersheet.ui.states.PickerState
+import ir.saltech.answersheet.ui.states.rememberPickerState
 import ir.saltech.answersheet.ui.theme.Symbols
+import ir.saltech.answersheet.utils.fadingEdge
+import ir.saltech.answersheet.utils.pixelsToDp
 import ir.saltech.answersheet.viewmodels.MainViewModel
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun Picker(
+    modifier: Modifier = Modifier,
+    items: List<String>,
+    state: PickerState = rememberPickerState(),
+    startIndex: Int = 0,
+    visibleItemsCount: Int = 3,
+    textModifier: Modifier = Modifier,
+    textStyle: TextStyle = LocalTextStyle.current,
+) {
+
+    val visibleItemsMiddle = visibleItemsCount / 2
+    val listScrollCount = Integer.MAX_VALUE
+    val listScrollMiddle = listScrollCount / 2
+    val listStartIndex =
+        listScrollMiddle - listScrollMiddle % items.size - visibleItemsMiddle + startIndex
+
+    fun getItem(index: Int) = items[index % items.size]
+
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = listStartIndex)
+    val flingBehavior = rememberSnapFlingBehavior(lazyListState = listState)
+
+    val itemHeightPixels = remember { mutableIntStateOf(0) }
+    val itemHeightDp = pixelsToDp(itemHeightPixels.intValue)
+
+    val fadingEdgeGradient = remember {
+        Brush.verticalGradient(
+            0f to Color.Transparent,
+            0.5f to Color.Black,
+            1f to Color.Transparent
+        )
+    }
+
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.firstVisibleItemIndex }
+            .map { index -> getItem(index + visibleItemsMiddle) }
+            .distinctUntilChanged()
+            .collect { item -> state.selectedItem = item }
+    }
+
+    Box(modifier = modifier) {
+        LazyColumn(
+            state = listState,
+            flingBehavior = flingBehavior,
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(itemHeightDp * visibleItemsCount)
+                .fadingEdge(fadingEdgeGradient)
+        ) {
+            items(listScrollCount) { index ->
+                Text(
+                    text = getItem(index),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = textStyle,
+                    modifier = Modifier
+                        .onSizeChanged { size -> itemHeightPixels.intValue = size.height }
+                        .then(textModifier)
+                )
+            }
+        }
+    }
+
+}
+
+/**
+ * Animated Count is an Animated Compose Block that can count with animate your number with update
+ */
+@Composable
+fun AnimatedCount(number: Int, content: @Composable (Digit) -> Unit) {
+    Row(
+        modifier = Modifier
+            .animateContentSize()
+            .padding(horizontal = 32.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        number.toString()
+            .mapIndexed { index, c -> Digit(c, number, index) }
+            .forEach { digit ->
+                AnimatedContent(
+                    targetState = digit,
+                    transitionSpec = {
+                        if (targetState > initialState) {
+                            slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Up) { -it } togetherWith slideOutOfContainer(
+                                AnimatedContentTransitionScope.SlideDirection.Down
+                            ) { it }
+                        } else {
+                            slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Up) { it } togetherWith slideOutOfContainer(
+                                AnimatedContentTransitionScope.SlideDirection.Down
+                            ) { -it }
+                        }
+                    }, label = ""
+                ) { digit2 ->
+                    content(digit2)
+                }
+            }
+    }
+}
+
+/**
+ * Animated Number is an Animated Compose Block that can count with animate from 0 to your number
+ * @param number Number that must be counted until that
+ */
+@Composable
+fun AnimatedNumber(number: Int, content: @Composable (Int) -> Unit) {
+    var numbers by remember { mutableIntStateOf(0) }
+    val counter by animateIntAsState(
+        targetValue = numbers,
+        animationSpec = tween(
+            durationMillis = 1250,
+            easing = FastOutSlowInEasing
+        ),
+        label = "AnimatedNumber"
+    )
+    LaunchedEffect(Unit) { numbers = number }
+    content(counter)
+}
 
 @Composable
 fun LockedDirection(
@@ -71,7 +208,6 @@ fun LockedDirection(
         content()
     }
 }
-
 
 @Composable
 fun MaterialAlertDialog(
@@ -152,15 +288,24 @@ fun PermissionAlert(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun TitleBar(modifier: Modifier = Modifier, title: String, showBack: Boolean = false, mainViewModel: MainViewModel = viewModel()) {
+fun TitleBar(
+    modifier: Modifier = Modifier,
+    title: String,
+    showBack: Boolean = false,
+    mainViewModel: MainViewModel = viewModel()
+) {
     Row(
-        modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround, verticalAlignment = Alignment.CenterVertically
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceAround,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         if (showBack) {
             Spacer(modifier = Modifier.fillMaxWidth(fraction = 0.1f))
         }
         Text(
-            modifier = Modifier.width(185.dp).basicMarquee(),
+            modifier = Modifier
+                .width(185.dp)
+                .basicMarquee(),
             text = title,
             style = MaterialTheme.typography.displayMedium,
             textAlign = TextAlign.Center,
@@ -168,7 +313,10 @@ fun TitleBar(modifier: Modifier = Modifier, title: String, showBack: Boolean = f
         )
         if (showBack) {
             IconButton(
-                modifier = Modifier.width(35.dp).height(35.dp).padding(top = 3.dp, end = 5.dp),
+                modifier = Modifier
+                    .width(35.dp)
+                    .height(35.dp)
+                    .padding(top = 3.dp, end = 5.dp),
                 onClick = { mainViewModel.onBackPressed() }) {
                 Icon(
                     painter = painterResource(id = R.drawable.arrow_back),
@@ -215,7 +363,7 @@ fun RowScope.MainBottomNavItem(
 }
 
 @Composable
-fun LazyGridItemScope.ExamNavCard(examTypeItem: ExamTypesItem, onClick: () -> Unit) {
+fun ExamNavCard(examTypeItem: ExamTypesItem, onClick: () -> Unit) {
     ElevatedCard(
         modifier = Modifier
             .padding(13.dp)

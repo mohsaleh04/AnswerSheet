@@ -67,8 +67,15 @@ fun Launcher(mainViewModel: MainViewModel = viewModel()) {
     mainViewModel.context = LocalContext.current
     val tradeUiState by mainViewModel.uiState.collectAsState()
     mainViewModel.setupBackStrategy(tradeUiState.page) { mainViewModel.page = it }
-    MainView(tradeUiState.page) { p ->
-        mainViewModel.page = p
+    AnimatedVisibility(visible = tradeUiState.page == App.Page.Home) {
+        MainView(tradeUiState.page) { p ->
+            mainViewModel.page = p
+        }
+    }
+    AnimatedVisibility(visible = tradeUiState.page == App.Page.NewExam) {
+        Scaffold (modifier = Modifier.fillMaxSize()) {
+            NewExamPage(it)
+        }
     }
 }
 
@@ -76,7 +83,6 @@ fun Launcher(mainViewModel: MainViewModel = viewModel()) {
 fun MainView(
     page: App.Page,
     user: User? = null,
-    mainViewModel: MainViewModel = viewModel(),
     onPageChanged: (App.Page) -> Unit
 ) {
     var selectedMainPage: MainNavItem by remember { mutableStateOf(MainNavItem.ExamRoom) }
@@ -284,7 +290,7 @@ fun ExamsNavView(padding: PaddingValues, page: App.Page, onPageChanged: (App.Pag
             item {
                 FilledTonalButton(
                     modifier = Modifier.padding(4.dp),
-                    onClick = { /*TODO*/ },
+                    onClick = { onPageChanged(App.Page.NewExam) },
                     colors = ButtonColors(
                         MaterialTheme.colorScheme.tertiaryContainer,
                         MaterialTheme.colorScheme.onTertiaryContainer,
