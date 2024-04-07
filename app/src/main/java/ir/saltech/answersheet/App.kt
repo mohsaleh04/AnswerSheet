@@ -17,6 +17,10 @@ object App {
         Home, NewExam
     }
 
+    enum class ExamCorrectionMode {
+        None, Manual, ByKeys
+    }
+
 //    fun getUserProfile(context: Context): User {
 //        return fromJson<User>(context.dataStore[Key.UserProfile] ?: "") ?: User()
 //    }

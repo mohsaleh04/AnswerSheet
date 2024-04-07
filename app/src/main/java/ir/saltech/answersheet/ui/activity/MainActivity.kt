@@ -3,7 +3,13 @@ package ir.saltech.answersheet.ui.activity
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
+import android.widget.Toast
+import android.window.OnBackInvokedCallback
+import android.window.OnBackInvokedDispatcher
+import androidx.activity.BackEventCompat
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
@@ -12,13 +18,21 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.core.os.BuildCompat
 import ir.saltech.answersheet.R
 import ir.saltech.answersheet.ui.theme.AnswerSheetTheme
 import ir.saltech.answersheet.ui.view.Launcher
 import ir.saltech.answersheet.ui.view.LockedDirection
+import ir.saltech.answersheet.ui.view.MaterialAlertDialog
 import ir.saltech.answersheet.ui.view.PermissionAlert
 import ir.saltech.answersheet.viewmodels.MainViewModel
 import kotlin.system.exitProcess
@@ -27,7 +41,7 @@ class MainActivity : ComponentActivity() {
     private val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) arrayOf(
         android.Manifest.permission.POST_NOTIFICATIONS
     ) else arrayOf(
-        android.Manifest.permission.WRITE_EXTERNAL_STORAGE
+        android.Manifest.permission.INTERNET
     )
     private var permissionLauncher: ActivityResultLauncher<Array<String>>
     private val mainViewModel: MainViewModel by viewModels()
@@ -102,12 +116,5 @@ class MainActivity : ComponentActivity() {
 
     private fun requestAppPermissions() {
         permissionLauncher.launch(permissions)
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        if (mainViewModel.onBackPressed()) {
-            super.onBackPressed()
-        }
     }
 }

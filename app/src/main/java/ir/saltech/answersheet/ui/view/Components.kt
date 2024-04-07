@@ -1,14 +1,26 @@
 package ir.saltech.answersheet.ui.view
 
+import android.content.Context
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
@@ -24,8 +36,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CornerSize
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -39,6 +56,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -53,6 +71,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -64,6 +83,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import ir.saltech.answersheet.App
 import ir.saltech.answersheet.R
 import ir.saltech.answersheet.dto.ui.Digit
 import ir.saltech.answersheet.dto.ui.ExamTypesItem
@@ -71,7 +91,6 @@ import ir.saltech.answersheet.dto.ui.MainNavItem
 import ir.saltech.answersheet.dto.ui.compareTo
 import ir.saltech.answersheet.dto.ui.navItems
 import ir.saltech.answersheet.ui.states.PickerState
-import ir.saltech.answersheet.ui.states.rememberPickerState
 import ir.saltech.answersheet.ui.theme.Symbols
 import ir.saltech.answersheet.utils.fadingEdge
 import ir.saltech.answersheet.utils.pixelsToDp
@@ -84,7 +103,7 @@ import kotlinx.coroutines.flow.map
 fun Picker(
     modifier: Modifier = Modifier,
     items: List<String>,
-    state: PickerState = rememberPickerState(),
+    state: PickerState,
     startIndex: Int = 0,
     visibleItemsCount: Int = 3,
     textModifier: Modifier = Modifier,
@@ -107,17 +126,32 @@ fun Picker(
 
     val fadingEdgeGradient = remember {
         Brush.verticalGradient(
-            0f to Color.Transparent,
-            0.5f to Color.Black,
-            1f to Color.Transparent
+            0f to Color.Transparent, 0.5f to Color.Black, 1f to Color.Transparent
         )
     }
 
+    val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val vibratorManager =
+            LocalContext.current.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+        vibratorManager.defaultVibrator
+    } else {
+        LocalContext.current.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+    }
+
     LaunchedEffect(listState) {
-        snapshotFlow { listState.firstVisibleItemIndex }
-            .map { index -> getItem(index + visibleItemsMiddle) }
-            .distinctUntilChanged()
-            .collect { item -> state.selectedItem = item }
+        snapshotFlow { listState.firstVisibleItemIndex }.map { index -> getItem(index + visibleItemsMiddle) }
+            .distinctUntilChanged().collect { item ->
+                state.selectedItem = item
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vibrator.vibrate(
+                        VibrationEffect.createOneShot(
+                            18, VibrationEffect.DEFAULT_AMPLITUDE
+                        )
+                    )
+                } else {
+                    vibrator.vibrate(18)
+                }
+            }
     }
 
     Box(modifier = modifier) {
@@ -131,15 +165,15 @@ fun Picker(
                 .fadingEdge(fadingEdgeGradient)
         ) {
             items(listScrollCount) { index ->
-                Text(
-                    text = getItem(index),
+                Text(text = getItem(index),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     style = textStyle,
                     modifier = Modifier
-                        .onSizeChanged { size -> itemHeightPixels.intValue = size.height }
-                        .then(textModifier)
-                )
+                        .onSizeChanged { size ->
+                            itemHeightPixels.intValue = size.height
+                        }
+                        .then(textModifier))
             }
         }
     }
@@ -158,26 +192,23 @@ fun AnimatedCount(number: Int, content: @Composable (Digit) -> Unit) {
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        number.toString()
-            .mapIndexed { index, c -> Digit(c, number, index) }
-            .forEach { digit ->
-                AnimatedContent(
-                    targetState = digit,
-                    transitionSpec = {
-                        if (targetState > initialState) {
-                            slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Up) { -it } togetherWith slideOutOfContainer(
-                                AnimatedContentTransitionScope.SlideDirection.Down
-                            ) { it }
-                        } else {
-                            slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Up) { it } togetherWith slideOutOfContainer(
-                                AnimatedContentTransitionScope.SlideDirection.Down
-                            ) { -it }
-                        }
-                    }, label = ""
-                ) { digit2 ->
-                    content(digit2)
-                }
+        number.toString().mapIndexed { index, c -> Digit(c, number, index) }.forEach { digit ->
+            AnimatedContent(
+                targetState = digit, transitionSpec = {
+                    if (targetState > initialState) {
+                        slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Up) { -it } togetherWith slideOutOfContainer(
+                            AnimatedContentTransitionScope.SlideDirection.Down
+                        ) { it }
+                    } else {
+                        slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Up) { it } togetherWith slideOutOfContainer(
+                            AnimatedContentTransitionScope.SlideDirection.Down
+                        ) { -it }
+                    }
+                }, label = ""
+            ) { digit2 ->
+                content(digit2)
             }
+        }
     }
 }
 
@@ -189,12 +220,9 @@ fun AnimatedCount(number: Int, content: @Composable (Digit) -> Unit) {
 fun AnimatedNumber(number: Int, content: @Composable (Int) -> Unit) {
     var numbers by remember { mutableIntStateOf(0) }
     val counter by animateIntAsState(
-        targetValue = numbers,
-        animationSpec = tween(
-            durationMillis = 1250,
-            easing = FastOutSlowInEasing
-        ),
-        label = "AnimatedNumber"
+        targetValue = numbers, animationSpec = tween(
+            durationMillis = 1250, easing = FastOutSlowInEasing
+        ), label = "AnimatedNumber"
     )
     LaunchedEffect(Unit) { numbers = number }
     content(counter)
@@ -292,8 +320,10 @@ fun TitleBar(
     modifier: Modifier = Modifier,
     title: String,
     showBack: Boolean = false,
-    mainViewModel: MainViewModel = viewModel()
+    mainViewModel: MainViewModel = viewModel(),
+    style: TextStyle = MaterialTheme.typography.displayLarge
 ) {
+    val mainUiState by mainViewModel.uiState.collectAsState()
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceAround,
@@ -307,20 +337,22 @@ fun TitleBar(
                 .width(185.dp)
                 .basicMarquee(),
             text = title,
-            style = MaterialTheme.typography.displayMedium,
+            style = style,
             textAlign = TextAlign.Center,
             maxLines = 1
         )
         if (showBack) {
-            IconButton(
-                modifier = Modifier
-                    .width(35.dp)
-                    .height(35.dp)
-                    .padding(top = 3.dp, end = 5.dp),
-                onClick = { mainViewModel.onBackPressed() }) {
+            IconButton(modifier = Modifier
+                .width(48.dp)
+                .height(48.dp)
+                .padding(top = 3.dp, end = 5.dp),
+                onClick = {
+                    mainViewModel.onBackPressed(mainUiState.page) {
+                        mainViewModel.page = it
+                    }
+                }) {
                 Icon(
-                    painter = painterResource(id = R.drawable.arrow_back),
-                    contentDescription = null
+                    imageVector = Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = null
                 )
             }
         }
@@ -427,5 +459,94 @@ fun SettingsOption(icon: Int, title: String, showDivider: Boolean = true, onClic
     }
     if (showDivider) {
         HorizontalDivider(modifier = Modifier.padding(vertical = 3.dp, horizontal = 24.dp))
+    }
+}
+
+@Composable
+fun Page(
+    which: App.Page, mainViewModel: MainViewModel = viewModel(), content: @Composable () -> Unit
+) {
+    val tradeUiState by mainViewModel.uiState.collectAsState()
+    AnimatedVisibility(visible = tradeUiState.page == which,
+        enter = fadeIn() + slideInVertically { it },
+        exit = fadeOut() + slideOutVertically { it }) {
+        content()
+    }
+}
+
+@Composable
+fun FilledToggleButton(
+    checked: Boolean,
+    onCheckedChanged: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    content: @Composable () -> Unit
+) {
+    if (checked) {
+        Button(
+            onClick = {
+                onCheckedChanged(false)
+            }, modifier = modifier, enabled = enabled
+        ) {
+            content()
+        }
+    } else {
+        ElevatedButton(
+            onClick = {
+                onCheckedChanged(true)
+            }, modifier = modifier, enabled = enabled
+        ) {
+            content()
+        }
+    }
+}
+
+@Composable
+fun GroupBox(
+    title: String,
+    icon: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    Box(modifier = modifier) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                    shape = RoundedCornerShape(25.dp)
+                )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Spacer(modifier = Modifier.height(8.dp))
+                content()
+            }
+        }
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 3.dp, end = 48.dp)
+                .background(color = MaterialTheme.colorScheme.background),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = " $title",
+                color = MaterialTheme.colorScheme.onBackground,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.width(5.dp))
+            Box(modifier = Modifier.padding(top = 1.5.dp)) {
+                icon()
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+        }
     }
 }

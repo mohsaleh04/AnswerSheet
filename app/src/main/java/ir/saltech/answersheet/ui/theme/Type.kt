@@ -9,19 +9,22 @@ import androidx.compose.ui.unit.sp
 import ir.saltech.answersheet.R
 
 val Estedad = FontFamily(
-    Font(R.font.estedad_black, FontWeight.Black),
-    Font(R.font.estedad_black, FontWeight.Bold),
-    Font(R.font.estedad_black, FontWeight.Medium),
-    Font(R.font.estedad_light, FontWeight.Normal),
-    Font(R.font.estedad_light, FontWeight.Light),
+    Font(R.font.estedad_light)
 )
 
 val Typography = Typography(
+    headlineLarge = TextStyle(
+        fontFamily = Estedad,
+        fontWeight = FontWeight.Bold,
+        fontSize = 32.sp,
+        lineHeight = 18.sp,
+        letterSpacing = 2.sp
+    ),
     headlineMedium = TextStyle(
         fontFamily = Estedad,
         fontWeight = FontWeight.Normal,
         fontSize = 28.sp,
-        lineHeight = 14.sp,
+        lineHeight = 16.sp,
         letterSpacing = 2.sp
     ), headlineSmall = TextStyle(
         fontFamily = Estedad,
@@ -32,7 +35,7 @@ val Typography = Typography(
     ), displayLarge = TextStyle(
         fontFamily = Estedad,
         fontWeight = FontWeight.Bold,
-        fontSize = 36.sp,
+        fontSize = 28.sp,
         lineHeight = 48.sp,
         letterSpacing = 0.5.sp
     ), displayMedium = TextStyle(

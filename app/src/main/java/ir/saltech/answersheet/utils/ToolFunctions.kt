@@ -1,5 +1,9 @@
 package ir.saltech.answersheet.utils
 
+import android.content.Context
+import android.net.Uri
+import android.provider.DocumentsContract
+import android.provider.MediaStore
 import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -13,6 +17,8 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import com.google.gson.Gson
 import java.util.GregorianCalendar
+import kotlin.math.pow
+
 
 operator fun Int.div(dp: Dp): Float {
     return this / dp.value
@@ -82,3 +88,14 @@ fun Modifier.fadingEdge(brush: Brush) = this
 
 @Composable
 fun pixelsToDp(pixels: Int) = with(LocalDensity.current) { pixels.toDp() }
+
+fun checkExamTimeValidation(hour: Int, minute: Int): Boolean {
+    return hour in 1..5 || minute in 5..<60
+}
+
+fun IntRange.toStringList(): List<String> =
+    this.map { it.toString() }
+
+infix fun Int.pow(times: Int): Int {
+    return this.toDouble().pow(times.toDouble()).toInt()
+}

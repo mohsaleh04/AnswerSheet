@@ -1,5 +1,6 @@
 package ir.saltech.answersheet.ui.view
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
@@ -65,14 +66,16 @@ import ir.saltech.answersheet.viewmodels.MainViewModel
 @Composable
 fun Launcher(mainViewModel: MainViewModel = viewModel()) {
     mainViewModel.context = LocalContext.current
-    val tradeUiState by mainViewModel.uiState.collectAsState()
-    mainViewModel.setupBackStrategy(tradeUiState.page) { mainViewModel.page = it }
-    AnimatedVisibility(visible = tradeUiState.page == App.Page.Home) {
-        MainView(tradeUiState.page) { p ->
+    val mainUiState by mainViewModel.uiState.collectAsState()
+    BackHandler (mainUiState.page != App.Page.Home) {
+        mainViewModel.onBackPressed(mainUiState.page) { mainViewModel.page = it }
+    }
+    Page(App.Page.Home) {
+        MainView(mainUiState.page) { p ->
             mainViewModel.page = p
         }
     }
-    AnimatedVisibility(visible = tradeUiState.page == App.Page.NewExam) {
+    Page(App.Page.NewExam) {
         Scaffold (modifier = Modifier.fillMaxSize()) {
             NewExamPage(it)
         }
@@ -290,6 +293,25 @@ fun ExamsNavView(padding: PaddingValues, page: App.Page, onPageChanged: (App.Pag
             item {
                 FilledTonalButton(
                     modifier = Modifier.padding(4.dp),
+                    onClick = { /*TODO*/ },
+                    colors = ButtonColors(
+                        MaterialTheme.colorScheme.primaryContainer,
+                        MaterialTheme.colorScheme.onPrimaryContainer,
+                        MaterialTheme.colorScheme.secondaryContainer,
+                        MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                ) {
+                    Text("جستــجـو", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Icon(
+                        painter = painterResource(id = R.drawable.exam_search),
+                        contentDescription = "Search Exam"
+                    )
+                }
+            }
+            item {
+                FilledTonalButton(
+                    modifier = Modifier.padding(4.dp),
                     onClick = { onPageChanged(App.Page.NewExam) },
                     colors = ButtonColors(
                         MaterialTheme.colorScheme.tertiaryContainer,
@@ -311,17 +333,19 @@ fun ExamsNavView(padding: PaddingValues, page: App.Page, onPageChanged: (App.Pag
                     modifier = Modifier.padding(4.dp),
                     onClick = { /*TODO*/ },
                     colors = ButtonColors(
-                        MaterialTheme.colorScheme.primaryContainer,
-                        MaterialTheme.colorScheme.onPrimaryContainer,
+                        colorResource(R.color.favorite_container),
+                        colorResource(
+                            id = R.color.favorite_on_container
+                        ),
                         MaterialTheme.colorScheme.secondaryContainer,
                         MaterialTheme.colorScheme.onSecondaryContainer
                     )
                 ) {
-                    Text("جستــجـو", style = MaterialTheme.typography.bodyMedium)
+                    Text("پسندیده ها", style = MaterialTheme.typography.bodyMedium)
                     Spacer(modifier = Modifier.width(8.dp))
                     Icon(
-                        painter = painterResource(id = R.drawable.exam_search),
-                        contentDescription = "Search Exam"
+                        painter = painterResource(id = R.drawable.exam_favorite),
+                        contentDescription = "Favorite Exams"
                     )
                 }
             }
@@ -342,27 +366,6 @@ fun ExamsNavView(padding: PaddingValues, page: App.Page, onPageChanged: (App.Pag
                     Icon(
                         painter = painterResource(id = R.drawable.exam_online),
                         contentDescription = "Online Exam"
-                    )
-                }
-            }
-            item {
-                FilledTonalButton(
-                    modifier = Modifier.padding(4.dp),
-                    onClick = { /*TODO*/ },
-                    colors = ButtonColors(
-                        colorResource(R.color.favorite_container),
-                        colorResource(
-                            id = R.color.favorite_on_container
-                        ),
-                        MaterialTheme.colorScheme.secondaryContainer,
-                        MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                ) {
-                    Text("پسندیده ها", style = MaterialTheme.typography.bodyMedium)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Icon(
-                        painter = painterResource(id = R.drawable.exam_favorite),
-                        contentDescription = "Favorite Exams"
                     )
                 }
             }

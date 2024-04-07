@@ -7,8 +7,8 @@ val examTypesItems = listOf(
     ExamTypesItem.Suspended,
     ExamTypesItem.Finished,
     ExamTypesItem.Correcting,
-    ExamTypesItem.Creating,
-    ExamTypesItem.Scheduled
+    ExamTypesItem.Scheduled,
+    ExamTypesItem.Draft
 )
 
 sealed class ExamTypesItem(
@@ -33,9 +33,9 @@ sealed class ExamTypesItem(
             icon = R.drawable.exam_finished
         )
 
-    data object Creating :
+    data object Draft :
         ExamTypesItem(
-            title = "در دست ساخت",
+            title = "پـیـش نـویس",
             icon = R.drawable.exam_creating
         )
 
