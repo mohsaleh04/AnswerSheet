@@ -29,7 +29,7 @@ class MainViewModel : ViewModel() {
 
     fun onBackPressed(page: App.Page, onPageChanged: (App.Page) -> Unit) {
         when (page) {
-            App.Page.NewExam -> onPageChanged(App.Page.Home)
+            App.Page.NewExam, App.Page.ExamRoom -> onPageChanged(App.Page.Home)
             else -> Log.e("BACK_HANDLER", "Back Progress undefined")
         }
     }

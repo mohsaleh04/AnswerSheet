@@ -1,6 +1,7 @@
 package ir.saltech.answersheet.ui.view
 
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -37,14 +38,18 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -74,17 +79,22 @@ import ir.saltech.answersheet.utils.checkExamTimeValidation
 import ir.saltech.answersheet.utils.pow
 import ir.saltech.answersheet.utils.toStringList
 import ir.saltech.answersheet.viewmodels.MainViewModel
+import kotlinx.coroutines.launch
 
 
 const val MAX_QUESTION_NUMBER_LENGTH: Int = 6
+const val MIN_OF_QUESTIONS: Int = 5
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NewExamPage(
-    padding: PaddingValues = PaddingValues(0.dp),
-    mainViewModel: MainViewModel = viewModel()
+    mainViewModel: MainViewModel = viewModel(),
+    onPageChanged: (App.Page) -> Unit
 ) {
+    val scope = rememberCoroutineScope()
+    val snackBarHostState = remember { SnackbarHostState() }
     val focus = LocalFocusManager.current
+
     val examTimeHourState = rememberPickerState()
     val examTimeMinuteState = rememberPickerState()
     val examChronoThresholdState = rememberPickerState()
@@ -110,585 +120,694 @@ fun NewExamPage(
             if (uri != null) {
                 val docName = Uri.parse("file://${uri.path}").toFile().name
                 val document = mainViewModel.saveDocumentFile(
-                    bytes =
-                    mainViewModel.context.contentResolver.openInputStream(uri)?.readBytes()
-                        ?: return@rememberLauncherForActivityResult,
-                    name = docName
+                    bytes = mainViewModel.context.contentResolver.openInputStream(uri)?.readBytes()
+                        ?: return@rememberLauncherForActivityResult, name = docName
                 )
                 examDocument = Document(id = docName, file = document)
             }
         }
+    val checkExam = fun(): Pair<Boolean, String?> {
+        val error: String?
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(padding)
-    ) {
-        Column {
-            TitleBar(
-                modifier = Modifier.padding(vertical = 16.dp), title = "آزمون جدید", showBack = true
-            )
-            Column(
-                modifier = Modifier
-                    .verticalScroll(rememberScrollState())
-                    .padding(bottom = 64.dp)
+        if (examName == null) {
+            error = "نام آزمون را انتخاب کنید."
+            return Pair(false, error)
+        }
+
+        if (examTimeMinuteState.selectedItem != "0" || examTimeHourState.selectedItem != "0") {
+            if (!checkExamTimeValidation(
+                    examTimeHourState.selectedItem.toIntOrNull() ?: 0,
+                    examTimeMinuteState.selectedItem.toIntOrNull() ?: 0
+                )
             ) {
-                Column {
-                    Spacer(modifier = Modifier.height(13.dp))
-                    LockedDirection(LayoutDirection.Rtl) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp, horizontal = 24.dp)
-                        ) {
-                            Icon(
-                                modifier = Modifier
-                                    .width(28.dp)
-                                    .height(28.dp),
-                                tint = MaterialTheme.colorScheme.primary,
-                                painter = painterResource(id = R.drawable.title_icon_exam_specs),
-                                contentDescription = ""
-                            )
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Text(
-                                modifier = Modifier,
-                                text = "مشخصات آزمون",
-                                style = MaterialTheme.typography.bodyLarge.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 19.sp,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.padding(5.dp))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(8.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        FilledToggleButton(checked = examDocument != null, onCheckedChanged = {
-                            //examDocumentSelectionWanted = true
-                            launcher.launch(arrayOf("application/pdf"))
-                        }) {
-                            Text(text = if (examDocument != null) "انتخاب شد" else "فایل سؤالات")
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Icon(
-                                painter = painterResource(id = R.drawable.exam_document_attach),
-                                contentDescription = "Exam Document Attachment"
-                            )
-                        }
-                        FilledToggleButton(checked = examName != null, onCheckedChanged = {
-                            examNameSelectionWanted = true
-                        }) {
-                            Text(text = if (examName != null) examName!!.name else " نام آزمون ")
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Icon(
-                                painter = painterResource(id = R.drawable.exam_name),
-                                contentDescription = "Exam Name"
-                            )
-                        }
-                    }
+                error = "زمان آزمون دچار اشکال است!"
+                return Pair(false, error)
+            }
+        }
+
+        if (questionsCountTo > 0) {
+            if (!(questionsCountFrom > 0 && questionsCountTo - questionsCountFrom >= MIN_OF_QUESTIONS)) {
+                error = "آخرین سؤال آزمون باید حداقل $MIN_OF_QUESTIONS تا از آخرین سؤال بیشتر باشد!"
+                return Pair(false, error)
+            }
+        }
+
+        if (questionsCountFrom > 0) {
+            if (!(questionsCountTo > 0 && questionsCountTo - questionsCountFrom >= MIN_OF_QUESTIONS)) {
+                error = "اولین سؤال آزمون باید حداقل $MIN_OF_QUESTIONS تا از آخرین سؤال کمتر باشد!"
+                return Pair(false, error)
+            }
+
+            if (questionsCountShuffle) {
+                if (questionsCount == 0) questionsCount = MIN_OF_QUESTIONS
+                questionsCountRatio = 1
+                if (questionsCount !in MIN_OF_QUESTIONS..(questionsCountTo - questionsCountFrom)) {
+                    error = "برای انتخاب تصادفی، حداقل تعداد $MIN_OF_QUESTIONS سؤال را انتخاب کنید."
+                    return Pair(false, error)
                 }
-                Column {
-                    Spacer(modifier = Modifier.height(13.dp))
-                    LockedDirection(LayoutDirection.Rtl) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp, horizontal = 24.dp)
-                        ) {
-                            Icon(
-                                modifier = Modifier
-                                    .width(28.dp)
-                                    .height(28.dp)
-                                    .scale(1.05f),
-                                tint = MaterialTheme.colorScheme.primary,
-                                painter = painterResource(id = R.drawable.title_icon_exam_questions),
-                                contentDescription = ""
-                            )
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Text(
-                                modifier = Modifier,
-                                text = "سؤالات آزمون",
-                                style = MaterialTheme.typography.bodyLarge.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 19.sp,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            )
-                        }
-                    }
-                    LockedDirection(LayoutDirection.Rtl) {
-                        Text(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 5.dp, start = 24.dp, end = 24.dp),
-                            text = "در صورتی که می\u200Cخواهید به صورت دستی سؤالات را وارد کنید، این بخش را خالی رها کنید.",
-                            color = MaterialTheme.colorScheme.secondary
+            } else {
+                if (questionsCountRatio == 0) questionsCountRatio = 1
+                questionsCount = 0
+                if (questionsCountRatio !in 1..((questionsCountTo - questionsCountFrom) / MIN_OF_QUESTIONS)) {
+                    error = "الگوی شمارش باید حداقل $MIN_OF_QUESTIONS سؤال را شامل شود."
+                    return Pair(false, error)
+                }
+            }
+        }
+        return Pair(true, null)
+    }
+
+    LockedDirection(LayoutDirection.Rtl) {
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            snackbarHost = {
+                SnackbarHost(hostState = snackBarHostState)
+            },
+        ) { padding ->
+            LockedDirection {
+                Box {
+                    Column(modifier = Modifier.padding(padding)) {
+                        TitleBar(
+                            modifier = Modifier.padding(vertical = 16.dp),
+                            title = "آزمون جدید",
+                            showBack = true
                         )
-                    }
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .fillMaxHeight()
-                            .padding(8.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        FilledIconToggleButton(
-                            modifier = (if (questionsCountRatioFocused || questionsCountRatio != 0) {
-                                Modifier.height(IntrinsicSize.Max)
-                            } else {
-                                Modifier.height(100.dp)
-                            }).padding(top = 13.dp, bottom = 5.dp, start = 5.dp, end = 5.dp),
-                            enabled = (questionsCountFrom != 0) and (questionsCountTo != 0) and (questionsCountTo - questionsCountFrom >= 5),
-                            checked = questionsCountShuffle,
-                            onCheckedChange = {
-                                questionsCountShuffle = !questionsCountShuffle
-                            },
-                            shape = RoundedCornerShape(15.dp)
+                        Column(
+                            modifier = Modifier
+                                .verticalScroll(rememberScrollState())
+                                .padding(bottom = 64.dp)
                         ) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.exam_questions_random_generation),
-                                contentDescription = "Shuffle questions"
-                            )
-                        }
-                        if (questionsCountShuffle) {
-                            OutlinedTextField(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(8.dp)
-                                    .onFocusChanged {
-                                        questionsCountRatioFocused = it.isFocused
-                                    },
-                                enabled = questionsCountShuffle,
-                                value = "${if (questionsCount > 0) questionsCount else ""}",
-                                onValueChange = {
-                                    questionsCount = if ((it.length in 1..3) and ((it.toIntOrNull()
-                                            ?: 0) in 1..500)
+                            Column {
+                                Spacer(modifier = Modifier.height(13.dp))
+                                LockedDirection(LayoutDirection.Rtl) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 8.dp, horizontal = 24.dp)
                                     ) {
-                                        it.toInt()
-                                    } else {
-                                        0
+                                        Icon(
+                                            modifier = Modifier
+                                                .width(28.dp)
+                                                .height(28.dp),
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            painter = painterResource(id = R.drawable.title_icon_exam_specs),
+                                            contentDescription = ""
+                                        )
+                                        Spacer(modifier = Modifier.width(16.dp))
+                                        Text(
+                                            modifier = Modifier,
+                                            text = "مشخصات آزمون",
+                                            style = MaterialTheme.typography.bodyLarge.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 19.sp,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                        )
                                     }
-                                },
-                                label = {
+                                }
+                                Spacer(modifier = Modifier.padding(5.dp))
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(8.dp),
+                                    horizontalArrangement = Arrangement.SpaceEvenly,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    FilledToggleButton(
+                                        checked = examDocument != null,
+                                        onCheckedChanged = {
+                                            //examDocumentSelectionWanted = true
+                                            launcher.launch(arrayOf("application/pdf"))
+                                        }) {
+                                        Text(text = if (examDocument != null) "انتخاب شد" else "فایل سؤالات")
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.exam_document_attach),
+                                            contentDescription = "Exam Document Attachment"
+                                        )
+                                    }
+                                    FilledToggleButton(
+                                        checked = examName != null,
+                                        onCheckedChanged = {
+                                            examNameSelectionWanted = true
+                                        }) {
+                                        Text(text = if (examName != null) examName!!.name else " نام آزمون ")
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.exam_name),
+                                            contentDescription = "Exam Name"
+                                        )
+                                    }
+                                }
+                            }
+                            Column {
+                                Spacer(modifier = Modifier.height(13.dp))
+                                LockedDirection(LayoutDirection.Rtl) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 8.dp, horizontal = 24.dp)
+                                    ) {
+                                        Icon(
+                                            modifier = Modifier
+                                                .width(28.dp)
+                                                .height(28.dp)
+                                                .scale(1.05f),
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            painter = painterResource(id = R.drawable.title_icon_exam_questions),
+                                            contentDescription = ""
+                                        )
+                                        Spacer(modifier = Modifier.width(16.dp))
+                                        Text(
+                                            modifier = Modifier,
+                                            text = "سؤالات آزمون",
+                                            style = MaterialTheme.typography.bodyLarge.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 19.sp,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                        )
+                                    }
+                                }
+                                LockedDirection(LayoutDirection.Rtl) {
                                     Text(
-                                        "تعداد\nسؤال",
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier.fillMaxWidth()
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 5.dp, start = 24.dp, end = 24.dp),
+                                        text = "در صورتی که می\u200Cخواهید به صورت دستی سؤالات را وارد کنید، این بخش را خالی رها کنید.",
+                                        color = MaterialTheme.colorScheme.secondary
                                     )
-                                },
-                                singleLine = true,
-                                textStyle = MaterialTheme.typography.bodyLarge.copy(textAlign = TextAlign.Center),
-                                shape = RoundedCornerShape(15.dp),
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Number, imeAction = ImeAction.Done
-                                ),
-                                keyboardActions = KeyboardActions(onDone = {
-                                    focus.clearFocus(true)
-                                })
-                            )
-                        } else {
-                            OutlinedTextField(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(8.dp)
-                                    .onFocusChanged {
-                                        questionsCountRatioFocused = it.isFocused
-                                    },
-                                enabled = !questionsCountShuffle,
-                                value = "${if (questionsCountRatio > 0) questionsCountRatio else ""}",
-                                onValueChange = {
-                                    questionsCountRatio =
-                                        if ((it.length in 1..2) and ((it.toIntOrNull()
-                                                ?: 0) in 1..20)
-                                        ) {
-                                            it.toInt()
+                                }
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .fillMaxHeight()
+                                        .padding(8.dp),
+                                    horizontalArrangement = Arrangement.SpaceEvenly,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    FilledIconToggleButton(
+                                        modifier = (if (questionsCountRatioFocused || questionsCountRatio != 0) {
+                                            Modifier.height(IntrinsicSize.Max)
                                         } else {
-                                            0
-                                        }
-                                },
-                                label = {
-                                    Text(
-                                        "الگوی\nشمارش",
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier.fillMaxWidth()
+                                            Modifier.height(100.dp)
+                                        }).padding(
+                                            top = 13.dp,
+                                            bottom = 5.dp,
+                                            start = 5.dp,
+                                            end = 5.dp
+                                        ),
+                                        enabled = (questionsCountFrom != 0) and (questionsCountTo != 0) and (questionsCountTo - questionsCountFrom >= MIN_OF_QUESTIONS),
+                                        checked = questionsCountShuffle,
+                                        onCheckedChange = {
+                                            questionsCountShuffle = !questionsCountShuffle
+                                            if (questionsCountShuffle) {
+                                                questionsCountRatio = 1
+                                            } else {
+                                                questionsCount = 0
+                                            }
+                                        },
+                                        shape = RoundedCornerShape(15.dp)
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.exam_questions_random_generation),
+                                            contentDescription = "Shuffle questions"
+                                        )
+                                    }
+                                    if (questionsCountShuffle) {
+                                        OutlinedTextField(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .padding(8.dp)
+                                                .onFocusChanged {
+                                                    questionsCountRatioFocused = it.isFocused
+                                                },
+                                            enabled = questionsCountShuffle,
+                                            value = "${if (questionsCount > 0) questionsCount else ""}",
+                                            onValueChange = {
+                                                questionsCount = if ((it.toIntOrNull()
+                                                        ?: 0) in 1..(questionsCountTo - questionsCountFrom)
+                                                ) {
+                                                    it.toInt()
+                                                } else {
+                                                    0
+                                                }
+                                            },
+                                            label = {
+                                                Text(
+                                                    "تعداد\nسؤال",
+                                                    textAlign = TextAlign.Center,
+                                                    modifier = Modifier.fillMaxWidth()
+                                                )
+                                            },
+                                            singleLine = true,
+                                            textStyle = MaterialTheme.typography.bodyLarge.copy(
+                                                textAlign = TextAlign.Center
+                                            ),
+                                            shape = RoundedCornerShape(15.dp),
+                                            keyboardOptions = KeyboardOptions(
+                                                keyboardType = KeyboardType.Number,
+                                                imeAction = ImeAction.Done
+                                            ),
+                                            keyboardActions = KeyboardActions(onDone = {
+                                                focus.clearFocus(true)
+                                            })
+                                        )
+                                    } else {
+                                        OutlinedTextField(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .padding(8.dp)
+                                                .onFocusChanged {
+                                                    questionsCountRatioFocused = it.isFocused
+                                                },
+                                            enabled = !questionsCountShuffle,
+                                            value = "${if (questionsCountRatio > 0) questionsCountRatio else ""}",
+                                            onValueChange = {
+                                                questionsCountRatio = if ((it.toIntOrNull()
+                                                        ?: 0) in 1..((questionsCountTo - questionsCountFrom) / MIN_OF_QUESTIONS)
+                                                ) {
+                                                    it.toInt()
+                                                } else {
+                                                    0
+                                                }
+                                            },
+                                            label = {
+                                                Text(
+                                                    "الگوی\nشمارش",
+                                                    textAlign = TextAlign.Center,
+                                                    modifier = Modifier.fillMaxWidth()
+                                                )
+                                            },
+                                            singleLine = true,
+                                            textStyle = MaterialTheme.typography.bodyLarge.copy(
+                                                textAlign = TextAlign.Center
+                                            ),
+                                            shape = RoundedCornerShape(15.dp),
+                                            keyboardOptions = KeyboardOptions(
+                                                keyboardType = KeyboardType.Number,
+                                                imeAction = ImeAction.Done
+                                            ),
+                                            keyboardActions = KeyboardActions(onDone = {
+                                                focus.clearFocus(true)
+                                            })
+                                        )
+                                    }
+                                    OutlinedTextField(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .padding(8.dp),
+                                        value = "${if (questionsCountTo > 0) questionsCountTo else ""}",
+                                        onValueChange = {
+                                            questionsCountTo =
+                                                if (it.length in 1..MAX_QUESTION_NUMBER_LENGTH && (it.toIntOrNull()
+                                                        ?: 0) in 1..<(10 pow (MAX_QUESTION_NUMBER_LENGTH + 1))
+                                                ) {
+                                                    it.toInt()
+                                                } else {
+                                                    0
+                                                }
+                                        },
+                                        label = {
+                                            Text(
+                                                "تا\nسؤال",
+                                                textAlign = TextAlign.Center,
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+                                        },
+                                        singleLine = true,
+                                        textStyle = MaterialTheme.typography.bodyLarge.copy(
+                                            textAlign = TextAlign.Center
+                                        ),
+                                        shape = RoundedCornerShape(15.dp),
+                                        keyboardOptions = KeyboardOptions(
+                                            keyboardType = KeyboardType.Number,
+                                            imeAction = ImeAction.Next
+                                        ),
+                                        keyboardActions = KeyboardActions(onNext = {
+                                            focus.moveFocus(FocusDirection.Left)
+                                        })
                                     )
-                                },
-                                singleLine = true,
-                                textStyle = MaterialTheme.typography.bodyLarge.copy(textAlign = TextAlign.Center),
-                                shape = RoundedCornerShape(15.dp),
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Number, imeAction = ImeAction.Done
-                                ),
-                                keyboardActions = KeyboardActions(onDone = {
-                                    focus.clearFocus(true)
-                                })
-                            )
-                        }
-                        OutlinedTextField(
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(8.dp),
-                            value = "${if (questionsCountTo > 0) questionsCountTo else ""}",
-                            onValueChange = {
-                                questionsCountTo =
-                                    if (it.length in 1..MAX_QUESTION_NUMBER_LENGTH && (it.toIntOrNull()
-                                            ?: 0) in 1..<(10 pow (MAX_QUESTION_NUMBER_LENGTH + 1))
+                                    OutlinedTextField(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .padding(8.dp),
+                                        value = "${if (questionsCountFrom > 0) questionsCountFrom else ""}",
+                                        onValueChange = {
+                                            questionsCountFrom =
+                                                if ((it.length in 1..MAX_QUESTION_NUMBER_LENGTH) and ((it.toIntOrNull()
+                                                        ?: 0) in 1..<(if (questionsCountTo > 0) questionsCountTo - MIN_OF_QUESTIONS else (10 pow (MAX_QUESTION_NUMBER_LENGTH + 1))))
+                                                ) {
+                                                    if (questionsCountRatio == 0) questionsCountRatio =
+                                                        1
+                                                    it.toInt()
+                                                } else {
+                                                    questionsCountRatio = 0
+                                                    0
+                                                }
+                                        },
+                                        label = {
+                                            Text(
+                                                "از\nسؤال",
+                                                textAlign = TextAlign.Center,
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+                                        },
+                                        singleLine = true,
+                                        textStyle = MaterialTheme.typography.bodyLarge.copy(
+                                            textAlign = TextAlign.Center
+                                        ),
+                                        shape = RoundedCornerShape(15.dp),
+                                        keyboardOptions = KeyboardOptions(
+                                            keyboardType = KeyboardType.Number,
+                                            imeAction = ImeAction.Next
+                                        ),
+                                        keyboardActions = KeyboardActions(onNext = {
+                                            focus.moveFocus(FocusDirection.Left)
+                                        })
+                                    )
+                                }
+                            }
+                            Column {
+                                Spacer(modifier = Modifier.height(13.dp))
+                                LockedDirection(LayoutDirection.Rtl) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 8.dp, horizontal = 24.dp)
                                     ) {
-                                        it.toInt()
-                                    } else {
-                                        0
+                                        Icon(
+                                            modifier = Modifier
+                                                .width(28.dp)
+                                                .height(28.dp)
+                                                .scale(1.05f),
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            painter = painterResource(id = R.drawable.title_icon_exam_features),
+                                            contentDescription = ""
+                                        )
+                                        Spacer(modifier = Modifier.width(16.dp))
+                                        Text(
+                                            modifier = Modifier,
+                                            text = "قابلیت\u200Cهای آزمون",
+                                            style = MaterialTheme.typography.bodyLarge.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 19.sp,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                        )
                                     }
-                            },
-                            label = {
-                                Text(
-                                    "تا\nسؤال",
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            },
-                            singleLine = true,
-                            textStyle = MaterialTheme.typography.bodyLarge.copy(textAlign = TextAlign.Center),
-                            shape = RoundedCornerShape(15.dp),
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Number, imeAction = ImeAction.Next
-                            ),
-                            keyboardActions = KeyboardActions(onNext = {
-                                focus.moveFocus(FocusDirection.Left)
-                            })
-                        )
-                        OutlinedTextField(
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(8.dp),
-                            value = "${if (questionsCountFrom > 0) questionsCountFrom else ""}",
-                            onValueChange = {
-                                questionsCountFrom =
-                                    if ((it.length in 1..MAX_QUESTION_NUMBER_LENGTH) and ((it.toIntOrNull()
-                                            ?: 0) in 1..<(10 pow (MAX_QUESTION_NUMBER_LENGTH + 1)))
+                                }
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        if (questionsCountRatio == 0) questionsCountRatio = 1
-                                        it.toInt()
-                                    } else {
-                                        questionsCountRatio = 0
-                                        0
+                                        Text("نحوه تصحیح آزمون")
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.exam_correction),
+                                            contentDescription = "Exam Correction"
+                                        )
                                     }
-                            },
-                            label = {
-                                Text(
-                                    "از\nسؤال",
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            },
-                            singleLine = true,
-                            textStyle = MaterialTheme.typography.bodyLarge.copy(textAlign = TextAlign.Center),
-                            shape = RoundedCornerShape(15.dp),
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Number, imeAction = ImeAction.Next
-                            ),
-                            keyboardActions = KeyboardActions(onNext = {
-                                focus.moveFocus(FocusDirection.Left)
-                            })
-                        )
-                    }
-                }
-                Column {
-                    Spacer(modifier = Modifier.height(13.dp))
-                    LockedDirection(LayoutDirection.Rtl) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp, horizontal = 24.dp)
-                        ) {
-                            Icon(
-                                modifier = Modifier
-                                    .width(28.dp)
-                                    .height(28.dp)
-                                    .scale(1.05f),
-                                tint = MaterialTheme.colorScheme.primary,
-                                painter = painterResource(id = R.drawable.title_icon_exam_features),
-                                contentDescription = ""
-                            )
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Text(
-                                modifier = Modifier,
-                                text = "قابلیت\u200Cهای آزمون",
-                                style = MaterialTheme.typography.bodyLarge.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 19.sp,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            )
+                                    SingleChoiceSegmentedButtonRow(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 13.dp, horizontal = 24.dp)
+                                    ) {
+                                        SegmentedButton(
+                                            selected = examCorrectionMode == App.ExamCorrectionMode.ByKeys,
+                                            onClick = {
+                                                examCorrectionMode = App.ExamCorrectionMode.ByKeys
+                                            },
+                                            shape = RoundedCornerShape(
+                                                topStart = 100.dp,
+                                                bottomStart = 100.dp
+                                            )
+                                        ) {
+                                            Text("با کلید")
+                                        }
+                                        SegmentedButton(
+                                            selected = examCorrectionMode == App.ExamCorrectionMode.Manual,
+                                            onClick = {
+                                                examCorrectionMode = App.ExamCorrectionMode.Manual
+                                            },
+                                            shape = RoundedCornerShape(0)
+                                        ) {
+                                            Text("دستی")
+                                        }
+                                        SegmentedButton(
+                                            selected = examCorrectionMode == App.ExamCorrectionMode.None,
+                                            onClick = {
+                                                examCorrectionMode = App.ExamCorrectionMode.None
+                                            },
+                                            shape = RoundedCornerShape(
+                                                topEnd = 100.dp,
+                                                bottomEnd = 100.dp
+                                            )
+                                        ) {
+                                            Text("هیچ")
+                                        }
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                GroupBox(modifier = Modifier.padding(horizontal = 10.dp),
+                                    title = "زمان بندی آزمون",
+                                    icon = {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.exam_time),
+                                            contentDescription = "Exam Time"
+                                        )
+                                    }) {
+                                    LockedDirection(LayoutDirection.Rtl) {
+                                        Text(
+                                            modifier = Modifier
+                                                .padding(8.dp)
+                                                .align(Alignment.CenterHorizontally),
+                                            text = "در صورت عدم نیاز، این بخش را خالی رها کنید.",
+                                            textAlign = TextAlign.Start,
+                                            color = MaterialTheme.colorScheme.secondary
+                                        )
+                                    }
+                                    Column(
+                                        modifier = Modifier.padding(horizontal = 16.dp),
+                                        verticalArrangement = Arrangement.Center,
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Spacer(modifier = Modifier.height(5.dp))
+                                        Text(
+                                            text = "حداقل زمان آزمون: 00:05",
+                                            color = MaterialTheme.colorScheme.tertiary
+                                        )
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.Center,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                modifier = Modifier.weight(1f),
+                                                text = "ساعت",
+                                                textAlign = TextAlign.Center
+                                            )
+                                            Text(
+                                                modifier = Modifier.weight(1f),
+                                                text = "دقیقه",
+                                                textAlign = TextAlign.Center
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(5.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.Center,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Picker(
+                                                modifier = Modifier.weight(1f),
+                                                state = examTimeHourState,
+                                                items = (0..5).toStringList()
+                                            )
+                                            Text(":", style = MaterialTheme.typography.displaySmall)
+                                            Picker(
+                                                modifier = Modifier.weight(1f),
+                                                state = examTimeMinuteState,
+                                                items = (0..<60).toStringList()
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                GroupBox(modifier = Modifier.padding(horizontal = 10.dp),
+                                    title = "کرنومتر آزمون",
+                                    icon = {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.exam_chronometer),
+                                            contentDescription = "Exam Chronometer"
+                                        )
+                                    }) {
+                                    LockedDirection(LayoutDirection.Rtl) {
+                                        Text(
+                                            modifier = Modifier
+                                                .padding(8.dp)
+                                                .align(Alignment.CenterHorizontally),
+                                            text = "به کمک کرنومتر بفهمید هر تست را چند ثانیه می زنید.",
+                                            textAlign = TextAlign.Start,
+                                            color = MaterialTheme.colorScheme.secondary
+                                        )
+                                        FilledToggleButton(modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 8.dp, horizontal = 16.dp),
+                                            checked = examChronoEnabled,
+                                            onCheckedChanged = { examChronoEnabled = it }) {
+                                            Icon(
+                                                painter = painterResource(id = R.drawable.exam_chronometer),
+                                                contentDescription = "Enable Chronometer"
+                                            )
+                                            Spacer(modifier = Modifier.padding(8.dp))
+                                            Text("فعال کردن کرنومتر")
+                                        }
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Row(
+                                            modifier = Modifier.padding(8.dp),
+                                            horizontalArrangement = Arrangement.Center,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                modifier = Modifier.weight(0.75f),
+                                                text = "حداکثر زمان مجاز حل تست: (حسب ثانیه)"
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Picker(
+                                                modifier = Modifier.weight(1f),
+                                                state = examChronoThresholdState,
+                                                items = (0..100).toStringList()
+                                            )
+                                        }
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                GroupBox(modifier = Modifier.padding(horizontal = 10.dp),
+                                    title = "دسته بندی آزمون",
+                                    icon = {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.exam_category),
+                                            contentDescription = "Exam Category"
+                                        )
+                                    }) {
+                                    FilledToggleButton(modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp, horizontal = 16.dp),
+                                        checked = examCategoryEnabled,
+                                        onCheckedChanged = { examCategoryEnabled = it }) {
+                                        Text("فعال کردن دسته بندی")
+                                        Spacer(modifier = Modifier.padding(8.dp))
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.exam_category),
+                                            contentDescription = "Enable Categorization"
+                                        )
+                                    }
+                                    AnimatedVisibility(visible = examCategoryEnabled) {
+                                        Column(
+                                            modifier = Modifier.padding(
+                                                vertical = 5.dp, horizontal = 10.dp
+                                            )
+                                        ) {
+                                            FilledToggleButton(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(vertical = 8.dp, horizontal = 16.dp),
+                                                checked = examCategoryTimingEnabled,
+                                                onCheckedChanged = {
+                                                    examCategoryTimingEnabled = it
+                                                },
+                                                enabled = checkExamTimeValidation(
+                                                    examTimeHourState.selectedItem.toIntOrNull()
+                                                        ?: 0,
+                                                    examTimeMinuteState.selectedItem.toIntOrNull()
+                                                        ?: 0
+                                                )
+                                            ) {
+                                                Text("تعیین زمان مجزا دسته")
+                                                Spacer(modifier = Modifier.padding(8.dp))
+                                                Icon(
+                                                    painter = painterResource(id = R.drawable.exam_category_time_enable),
+                                                    contentDescription = "Enable Category Timing"
+                                                )
+                                            }
+                                            FilledToggleButton(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(vertical = 8.dp, horizontal = 16.dp),
+                                                checked = examCategoryCorrectionEnabled,
+                                                onCheckedChanged = {
+                                                    examCategoryCorrectionEnabled = it
+                                                },
+                                                enabled = examCorrectionMode != App.ExamCorrectionMode.None
+                                            ) {
+                                                Text("تصحیح مجزا دسته")
+                                                Spacer(modifier = Modifier.padding(8.dp))
+                                                Icon(
+                                                    painter = painterResource(id = R.drawable.exam_correction_category),
+                                                    contentDescription = "Enable Category Correction"
+                                                )
+                                            }
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(3.dp))
+                                }
+                            }
                         }
                     }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .background(color = MaterialTheme.colorScheme.background.copy(alpha = 0.9f))
+                            .fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.padding(vertical = 10.dp, horizontal = 16.dp),
                             horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("نحوه تصحیح آزمون")
+                            Button(modifier = Modifier.fillMaxWidth(0.8f), onClick = {
+                                val (result, error) = checkExam()
+                                if (result) {
+                                    onPageChanged(App.Page.ExamRoom)
+                                } else {
+                                    scope.launch {
+                                        snackBarHostState.showSnackbar(
+                                            "لطفاً خطای زیر را برطرف کنید:\n$error",
+                                            withDismissAction = true
+                                        )
+                                    }
+                                }
+                            }) {
+                                Text(
+                                    "ورود به اتاق آزمون",
+                                    style = LocalTextStyle.current.copy(fontWeight = FontWeight.Bold)
+                                )
+                            }
                             Spacer(modifier = Modifier.width(8.dp))
-                            Icon(
-                                painter = painterResource(id = R.drawable.exam_correction),
-                                contentDescription = "Exam Correction"
-                            )
-                        }
-                        SingleChoiceSegmentedButtonRow(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 13.dp, horizontal = 24.dp)
-                        ) {
-                            SegmentedButton(
-                                selected = examCorrectionMode == App.ExamCorrectionMode.ByKeys,
-                                onClick = { examCorrectionMode = App.ExamCorrectionMode.ByKeys },
-                                shape = RoundedCornerShape(topStart = 100.dp, bottomStart = 100.dp)
-                            ) {
-                                Text("با کلید")
-                            }
-                            SegmentedButton(
-                                selected = examCorrectionMode == App.ExamCorrectionMode.Manual,
-                                onClick = { examCorrectionMode = App.ExamCorrectionMode.Manual },
-                                shape = RoundedCornerShape(0)
-                            ) {
-                                Text("دستی")
-                            }
-                            SegmentedButton(
-                                selected = examCorrectionMode == App.ExamCorrectionMode.None,
-                                onClick = { examCorrectionMode = App.ExamCorrectionMode.None },
-                                shape = RoundedCornerShape(topEnd = 100.dp, bottomEnd = 100.dp)
-                            ) {
-                                Text("هیچ")
-                            }
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    GroupBox(modifier = Modifier.padding(horizontal = 10.dp),
-                        title = "زمان بندی آزمون",
-                        icon = {
-                            Icon(
-                                painter = painterResource(id = R.drawable.exam_time),
-                                contentDescription = "Exam Time"
-                            )
-                        }) {
-                        LockedDirection(LayoutDirection.Rtl) {
-                            Text(
-                                modifier = Modifier
-                                    .padding(8.dp)
-                                    .align(Alignment.CenterHorizontally),
-                                text = "در صورت عدم نیاز، این بخش را خالی رها کنید.",
-                                textAlign = TextAlign.Start,
-                                color = MaterialTheme.colorScheme.secondary
-                            )
-                        }
-                        Column(
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Spacer(modifier = Modifier.height(5.dp))
-                            Text(
-                                text = "حداقل زمان آزمون: 00:05",
-                                color = MaterialTheme.colorScheme.tertiary
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    modifier = Modifier.weight(1f),
-                                    text = "ساعت",
-                                    textAlign = TextAlign.Center
-                                )
-                                Text(
-                                    modifier = Modifier.weight(1f),
-                                    text = "دقیقه",
-                                    textAlign = TextAlign.Center
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(5.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Picker(
-                                    modifier = Modifier.weight(1f),
-                                    state = examTimeHourState,
-                                    items = (0..5).toStringList()
-                                )
-                                Text(":", style = MaterialTheme.typography.displaySmall)
-                                Picker(
-                                    modifier = Modifier.weight(1f),
-                                    state = examTimeMinuteState,
-                                    items = (0..<60).toStringList()
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    GroupBox(modifier = Modifier.padding(horizontal = 10.dp),
-                        title = "کرنومتر آزمون",
-                        icon = {
-                            Icon(
-                                painter = painterResource(id = R.drawable.exam_chronometer),
-                                contentDescription = "Exam Chronometer"
-                            )
-                        }) {
-                        LockedDirection(LayoutDirection.Rtl) {
-                            Text(
-                                modifier = Modifier
-                                    .padding(8.dp)
-                                    .align(Alignment.CenterHorizontally),
-                                text = "به کمک کرنومتر بفهمید هر تست را چند ثانیه می زنید.",
-                                textAlign = TextAlign.Start,
-                                color = MaterialTheme.colorScheme.secondary
-                            )
-                            FilledToggleButton(modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp, horizontal = 16.dp),
-                                checked = examChronoEnabled,
-                                onCheckedChanged = { examChronoEnabled = it }) {
+                            FilledIconButton(onClick = { /*TODO*/ }) {
                                 Icon(
-                                    painter = painterResource(id = R.drawable.exam_chronometer),
-                                    contentDescription = "Enable Chronometer"
-                                )
-                                Spacer(modifier = Modifier.padding(8.dp))
-                                Text("فعال کردن کرنومتر")
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Row(
-                                modifier = Modifier.padding(8.dp),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    modifier = Modifier.weight(0.75f),
-                                    text = "حداکثر زمان مجاز حل تست: (حسب ثانیه)"
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Picker(
-                                    modifier = Modifier.weight(1f),
-                                    state = examChronoThresholdState,
-                                    items = (0..100).toStringList()
+                                    painter = painterResource(id = R.drawable.exam_schedule),
+                                    contentDescription = "Schedule Exam"
                                 )
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    GroupBox(modifier = Modifier.padding(horizontal = 10.dp),
-                        title = "دسته بندی آزمون",
-                        icon = {
-                            Icon(
-                                painter = painterResource(id = R.drawable.exam_category),
-                                contentDescription = "Exam Category"
-                            )
-                        }) {
-                        FilledToggleButton(modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp, horizontal = 16.dp),
-                            checked = examCategoryEnabled,
-                            onCheckedChanged = { examCategoryEnabled = it }) {
-                            Text("فعال کردن دسته بندی")
-                            Spacer(modifier = Modifier.padding(8.dp))
-                            Icon(
-                                painter = painterResource(id = R.drawable.exam_category),
-                                contentDescription = "Enable Categorization"
-                            )
-                        }
-                        AnimatedVisibility(visible = examCategoryEnabled) {
-                            Column(
-                                modifier = Modifier.padding(
-                                    vertical = 5.dp, horizontal = 10.dp
-                                )
-                            ) {
-                                FilledToggleButton(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 8.dp, horizontal = 16.dp),
-                                    checked = examCategoryTimingEnabled,
-                                    onCheckedChanged = {
-                                        examCategoryTimingEnabled = it
-                                    },
-                                    enabled = checkExamTimeValidation(
-                                        examTimeHourState.selectedItem.toIntOrNull() ?: 0,
-                                        examTimeMinuteState.selectedItem.toIntOrNull() ?: 0
-                                    )
-                                ) {
-                                    Text("تعیین زمان مجزا دسته")
-                                    Spacer(modifier = Modifier.padding(8.dp))
-                                    Icon(
-                                        painter = painterResource(id = R.drawable.exam_category_time_enable),
-                                        contentDescription = "Enable Category Timing"
-                                    )
-                                }
-                                FilledToggleButton(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 8.dp, horizontal = 16.dp),
-                                    checked = examCategoryCorrectionEnabled,
-                                    onCheckedChanged = {
-                                        examCategoryCorrectionEnabled = it
-                                    },
-                                    enabled = examCorrectionMode != App.ExamCorrectionMode.None
-                                ) {
-                                    Text("تصحیح مجزا دسته")
-                                    Spacer(modifier = Modifier.padding(8.dp))
-                                    Icon(
-                                        painter = painterResource(id = R.drawable.exam_correction_category),
-                                        contentDescription = "Enable Category Correction"
-                                    )
-                                }
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(3.dp))
-                    }
                 }
             }
-        }
-        Row(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .background(color = MaterialTheme.colorScheme.background.copy(alpha = 0.9f))
-                .fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                modifier = Modifier.padding(vertical = 10.dp, horizontal = 16.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Button(modifier = Modifier.fillMaxWidth(0.8f), onClick = { /*TODO*/ }) {
-                    Text(
-                        "ورود به اتاق آزمون",
-                        style = LocalTextStyle.current.copy(fontWeight = FontWeight.Bold)
-                    )
+            if (examNameSelectionWanted) {
+                ExamNameSelection(examName = examName, onDismissRequest = {
+                    examNameSelectionWanted = false
+                }) {
+                    examName = it
                 }
-                Spacer(modifier = Modifier.width(8.dp))
-                FilledIconButton(onClick = { /*TODO*/ }) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.exam_schedule),
-                        contentDescription = "Schedule Exam"
-                    )
-                }
-            }
-        }
-        if (examNameSelectionWanted) {
-            ExamNameSelection(examName = examName, onDismissRequest = {
-                examNameSelectionWanted = false
-            }) {
-                examName = it
             }
         }
     }
@@ -736,6 +855,6 @@ fun ExamNameSelection(
 @Composable
 fun NewExamPagePreview() {
     AnswerSheetTheme {
-        NewExamPage()
+        NewExamPage {}
     }
 }

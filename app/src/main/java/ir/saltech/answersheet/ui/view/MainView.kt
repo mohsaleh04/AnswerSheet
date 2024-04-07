@@ -76,9 +76,12 @@ fun Launcher(mainViewModel: MainViewModel = viewModel()) {
         }
     }
     Page(App.Page.NewExam) {
-        Scaffold (modifier = Modifier.fillMaxSize()) {
-            NewExamPage(it)
+        NewExamPage { p ->
+            mainViewModel.page = p
         }
+    }
+    Page(App.Page.ExamRoom) {
+
     }
 }
 

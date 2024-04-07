@@ -14,7 +14,7 @@ object App {
     }
 
     enum class Page {
-        Home, NewExam
+        Home, NewExam, ExamRoom
     }
 
     enum class ExamCorrectionMode {
