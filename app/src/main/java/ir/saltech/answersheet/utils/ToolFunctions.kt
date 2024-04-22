@@ -16,6 +16,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import com.google.gson.Gson
+import com.valentinilk.shimmer.shimmer
 import java.util.GregorianCalendar
 import kotlin.math.pow
 
@@ -99,3 +100,7 @@ fun IntRange.toStringList(): List<String> =
 infix fun Int.pow(times: Int): Int {
     return this.toDouble().pow(times.toDouble()).toInt()
 }
+
+fun Modifier.shimmerLoader(load: Boolean): Modifier =
+    if (load) this.shimmer() else this
+

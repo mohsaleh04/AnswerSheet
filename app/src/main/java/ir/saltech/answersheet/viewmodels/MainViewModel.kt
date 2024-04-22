@@ -6,6 +6,8 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ir.saltech.answersheet.App
+import ir.saltech.answersheet.dto.models.Exam
+import ir.saltech.answersheet.dto.models.Exams
 import ir.saltech.answersheet.ui.states.MainUiState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +27,17 @@ class MainViewModel : ViewModel() {
     var page: App.Page = App.Page.Home
         set(value) {
             _uiState.value = _uiState.value.copy(page = value)
+        }
+
+    var exams: Exams? = null
+        set(value) {
+            _uiState.value = _uiState.value.copy(exams = value)
+            App.setExams(context, value!!)
+        }
+
+    var currentExam: Exam? = null
+        set(value) {
+            _uiState.value = _uiState.value.copy(currentExam = value)
         }
 
     fun onBackPressed(page: App.Page, onPageChanged: (App.Page) -> Unit) {

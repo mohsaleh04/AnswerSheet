@@ -1,4 +1,4 @@
-package ir.saltech.answersheet.ui.view
+package ir.saltech.answersheet.ui.view.pages
 
 import android.net.Uri
 import android.widget.Toast
@@ -6,12 +6,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -20,9 +18,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -32,19 +27,19 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledIconToggleButton
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -56,6 +51,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -68,18 +64,39 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toFile
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.gmail.hamedvakhide.compose_jalali_datepicker.JalaliDatePickerDialog
+import ir.huri.jcal.JalaliCalendar
 import ir.saltech.answersheet.App
 import ir.saltech.answersheet.R
 import ir.saltech.answersheet.dto.models.Document
+import ir.saltech.answersheet.dto.models.Exam
+import ir.saltech.answersheet.dto.models.ExamChronometer
 import ir.saltech.answersheet.dto.models.ExamName
-import ir.saltech.answersheet.dto.models.testExamNames
+import ir.saltech.answersheet.dto.models.ExamTime
+import ir.saltech.answersheet.dto.models.ExamWhen
+import ir.saltech.answersheet.dto.models.Exams
+import ir.saltech.answersheet.dto.models.Question
+import ir.saltech.answersheet.dto.models.Questions
+import ir.saltech.answersheet.dto.models.QuestionsRange
 import ir.saltech.answersheet.ui.states.rememberPickerState
 import ir.saltech.answersheet.ui.theme.AnswerSheetTheme
+import ir.saltech.answersheet.ui.view.ExamNameSelection
+import ir.saltech.answersheet.ui.view.FilledToggleButton
+import ir.saltech.answersheet.ui.view.GroupBox
+import ir.saltech.answersheet.ui.view.LockedDirection
+import ir.saltech.answersheet.ui.view.MaterialAlertDialog
+import ir.saltech.answersheet.ui.view.Picker
+import ir.saltech.answersheet.ui.view.TimeSelection
+import ir.saltech.answersheet.ui.view.TitleBar
 import ir.saltech.answersheet.utils.checkExamTimeValidation
 import ir.saltech.answersheet.utils.pow
 import ir.saltech.answersheet.utils.toStringList
 import ir.saltech.answersheet.viewmodels.MainViewModel
 import kotlinx.coroutines.launch
+import java.util.Date
+import kotlin.random.Random
+import kotlin.random.nextInt
+import kotlin.random.nextLong
 
 
 const val MAX_QUESTION_NUMBER_LENGTH: Int = 6
@@ -88,9 +105,9 @@ const val MIN_OF_QUESTIONS: Int = 5
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NewExamPage(
-    mainViewModel: MainViewModel = viewModel(),
-    onPageChanged: (App.Page) -> Unit
+    mainViewModel: MainViewModel = viewModel(), onPageChanged: (App.Page) -> Unit
 ) {
+    val answerSheetState by mainViewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
     val snackBarHostState = remember { SnackbarHostState() }
     val focus = LocalFocusManager.current
@@ -110,10 +127,17 @@ fun NewExamPage(
     var examCategoryEnabled by remember { mutableStateOf(false) }
     var examCategoryTimingEnabled by remember { mutableStateOf(false) }
     var examCategoryCorrectionEnabled by remember { mutableStateOf(false) }
-    var examName: ExamName? by remember { mutableStateOf(null) }
-    var examDocument: Document? by remember { mutableStateOf(null) }
+    var examCorrectionWithNegativePoint by remember { mutableStateOf(false) }
+    var examScheduleSelectedJalaliCalendar by remember { mutableStateOf<JalaliCalendar?>(null) }
+    var examScheduleSelectedDate by remember { mutableStateOf<Date?>(null) }
+    var examScheduledSucceed by remember { mutableStateOf(false) }
+    var examName by remember { mutableStateOf<ExamName?>(null) }
+    var examDocument by remember { mutableStateOf<Document?>(null) }
+    var examDescription by remember { mutableStateOf<String?>(null) }
 
     var examNameSelectionWanted by remember { mutableStateOf(false) }
+    var examScheduleSelectionTimeWanted by remember { mutableStateOf(false) }
+    val examScheduleSelectionDateWanted = remember { mutableStateOf(false) }
 
     val launcher =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -167,7 +191,7 @@ fun NewExamPage(
                 }
             } else {
                 if (questionsCountRatio == 0) questionsCountRatio = 1
-                questionsCount = 0
+                questionsCount = questionsCountTo - questionsCountFrom
                 if (questionsCountRatio !in 1..((questionsCountTo - questionsCountFrom) / MIN_OF_QUESTIONS)) {
                     error = "الگوی شمارش باید حداقل $MIN_OF_QUESTIONS سؤال را شامل شود."
                     return Pair(false, error)
@@ -175,6 +199,79 @@ fun NewExamPage(
             }
         }
         return Pair(true, null)
+    }
+    val getExamQuestions = fun(): Questions? {
+        if (questionsCountFrom > 0 && questionsCountTo > 0) {
+            val examQuestionsRange = QuestionsRange(
+                from = questionsCountFrom,
+                to = questionsCountTo,
+                count = questionsCount,
+                step = questionsCountRatio,
+                shuffle = questionsCountShuffle
+            )
+            val listQuestions = mutableSetOf<Question>()
+            for (index in 0..questionsCount) {
+                val questionNumber =
+                    if (questionsCountShuffle) Random(
+                        questionsCountFrom
+                    ).nextInt(
+                        questionsCountFrom..questionsCountTo
+                    ) else questionsCountFrom + index
+                val chronometer = if (examChronoEnabled && examChronoThresholdState.selectedItem != "0") ExamChronometer(threshold = examChronoThresholdState.selectedItem.toLong()) else null
+                // TODO: Question features must be completed in the future. , such as category, chronometer and etc.
+                val question = Question(number = questionNumber, chronometer = chronometer)
+                listQuestions.add(question)
+            }
+            return Questions(
+                listQuestions,
+                examQuestionsRange,
+                examCorrectionWithNegativePoint
+            )
+        } else {
+            return null
+        }
+    }
+    val getExamFeatures = fun(): List<App.ExamFeature>? {
+        val examFeatures = mutableListOf<App.ExamFeature>()
+        if ((examTimeMinuteState.selectedItem != "0" || examTimeHourState.selectedItem != "0") && checkExamTimeValidation(
+                examTimeHourState.selectedItem.toIntOrNull() ?: 0,
+                examTimeMinuteState.selectedItem.toIntOrNull() ?: 0
+            )
+        ) {
+            examFeatures.add(App.ExamFeature.Timing)
+        }
+        if (examCorrectionMode != App.ExamCorrectionMode.None) {
+            examFeatures.add(App.ExamFeature.Correction)
+        }
+        if (examChronoEnabled) {
+            examFeatures.add(App.ExamFeature.Chronometer)
+            if (examChronoThresholdState.selectedItem != "0") {
+                examFeatures.add(App.ExamFeature.ChronometerThreshold)
+            }
+        }
+        if (examCategoryEnabled) {
+            examFeatures.add(App.ExamFeature.Categorization)
+        }
+        if (examCategoryTimingEnabled) {
+            examFeatures.add(App.ExamFeature.CategoryTiming)
+        }
+        if (examCategoryCorrectionEnabled) {
+            examFeatures.add(App.ExamFeature.CategoryCorrection)
+        }
+        return if (examFeatures.isNotEmpty()) {
+            examFeatures.toList()
+        } else {
+            null
+        }
+    }
+    val getExamTime = fun(): ExamTime? {
+        if (examTimeMinuteState.selectedItem != "0" || examTimeHourState.selectedItem != "0") {
+            val time =
+                ((examTimeHourState.selectedItem.toLong() * 3_600) + (examTimeMinuteState.selectedItem.toLong() * 60)) * 1000
+            return ExamTime(whole = time, left = time)
+        } else {
+            return null
+        }
     }
 
     LockedDirection(LayoutDirection.Rtl) {
@@ -185,8 +282,8 @@ fun NewExamPage(
             },
         ) { padding ->
             LockedDirection {
-                Box {
-                    Column(modifier = Modifier.padding(padding)) {
+                Box (modifier = Modifier.padding(padding)) {
+                    Column {
                         TitleBar(
                             modifier = Modifier.padding(vertical = 16.dp),
                             title = "آزمون جدید",
@@ -233,8 +330,7 @@ fun NewExamPage(
                                     horizontalArrangement = Arrangement.SpaceEvenly,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    FilledToggleButton(
-                                        checked = examDocument != null,
+                                    FilledToggleButton(checked = examDocument != null,
                                         onCheckedChanged = {
                                             //examDocumentSelectionWanted = true
                                             launcher.launch(arrayOf("application/pdf"))
@@ -246,8 +342,7 @@ fun NewExamPage(
                                             contentDescription = "Exam Document Attachment"
                                         )
                                     }
-                                    FilledToggleButton(
-                                        checked = examName != null,
+                                    FilledToggleButton(checked = examName != null,
                                         onCheckedChanged = {
                                             examNameSelectionWanted = true
                                         }) {
@@ -259,6 +354,35 @@ fun NewExamPage(
                                         )
                                     }
                                 }
+                                LockedDirection(LayoutDirection.Rtl) {
+                                    OutlinedTextField(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 32.dp, vertical = 8.dp),
+                                        value = examDescription ?: "",
+                                        onValueChange = {
+                                            if (it.isNotEmpty() && it.length <= 200) {
+                                                examDescription = it
+                                            } else if (it.isEmpty()) {
+                                                examDescription = null
+                                            }
+                                        },
+                                        singleLine = true,
+                                        label = { Text("شرح مختصر آزمون") },
+                                        textStyle = MaterialTheme.typography.bodyLarge,
+                                        shape = RoundedCornerShape(15.dp),
+                                        keyboardOptions = KeyboardOptions(
+                                            keyboardType = KeyboardType.Text,
+                                            imeAction = ImeAction.Done
+                                        ),
+                                        keyboardActions = KeyboardActions(onDone = {
+                                            focus.clearFocus(
+                                                true
+                                            )
+                                        })
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
                             }
                             Column {
                                 Spacer(modifier = Modifier.height(13.dp))
@@ -312,10 +436,7 @@ fun NewExamPage(
                                         } else {
                                             Modifier.height(100.dp)
                                         }).padding(
-                                            top = 13.dp,
-                                            bottom = 5.dp,
-                                            start = 5.dp,
-                                            end = 5.dp
+                                            top = 13.dp, bottom = 5.dp, start = 5.dp, end = 5.dp
                                         ),
                                         enabled = (questionsCountFrom != 0) and (questionsCountTo != 0) and (questionsCountTo - questionsCountFrom >= MIN_OF_QUESTIONS),
                                         checked = questionsCountShuffle,
@@ -542,8 +663,7 @@ fun NewExamPage(
                                                 examCorrectionMode = App.ExamCorrectionMode.ByKeys
                                             },
                                             shape = RoundedCornerShape(
-                                                topStart = 100.dp,
-                                                bottomStart = 100.dp
+                                                topStart = 100.dp, bottomStart = 100.dp
                                             )
                                         ) {
                                             Text("با کلید")
@@ -563,11 +683,32 @@ fun NewExamPage(
                                                 examCorrectionMode = App.ExamCorrectionMode.None
                                             },
                                             shape = RoundedCornerShape(
-                                                topEnd = 100.dp,
-                                                bottomEnd = 100.dp
+                                                topEnd = 100.dp, bottomEnd = 100.dp
                                             )
                                         ) {
                                             Text("هیچ")
+                                        }
+                                    }
+                                    AnimatedVisibility(examCorrectionMode != App.ExamCorrectionMode.None) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 24.dp, vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Switch(
+                                                checked = examCorrectionWithNegativePoint,
+                                                onCheckedChange = {
+                                                    examCorrectionWithNegativePoint = it
+                                                })
+                                            Text(
+                                                modifier = Modifier.weight(1f),
+                                                text = "لحاظ کردن نمره منفی",
+                                                textAlign = TextAlign.End,
+                                                style = MaterialTheme.typography.bodyLarge.copy(
+                                                    fontSize = 18.sp
+                                                )
+                                            )
                                         }
                                     }
                                 }
@@ -669,21 +810,23 @@ fun NewExamPage(
                                             Text("فعال کردن کرنومتر")
                                         }
                                         Spacer(modifier = Modifier.height(8.dp))
-                                        Row(
-                                            modifier = Modifier.padding(8.dp),
-                                            horizontalArrangement = Arrangement.Center,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text(
-                                                modifier = Modifier.weight(0.75f),
-                                                text = "حداکثر زمان مجاز حل تست: (حسب ثانیه)"
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Picker(
-                                                modifier = Modifier.weight(1f),
-                                                state = examChronoThresholdState,
-                                                items = (0..100).toStringList()
-                                            )
+                                        AnimatedVisibility(visible = examChronoEnabled) {
+                                            Row(
+                                                modifier = Modifier.padding(8.dp),
+                                                horizontalArrangement = Arrangement.Center,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    modifier = Modifier.weight(0.75f),
+                                                    text = "حداکثر زمان مجاز حل تست: (حسب ثانیه)"
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Picker(
+                                                    modifier = Modifier.weight(1f),
+                                                    state = examChronoThresholdState,
+                                                    items = (0..100).toStringList()
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -773,10 +916,49 @@ fun NewExamPage(
                             horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Button(modifier = Modifier.fillMaxWidth(0.8f), onClick = {
+                            Button(
+                                modifier = Modifier.fillMaxWidth(0.8f),
+                                enabled = !examScheduledSucceed,
+                                onClick = {
+                                    val (result, error) = checkExam()
+                                    if (result) {
+                                        val examTime: ExamTime? = getExamTime()
+                                        val examFeatures = getExamFeatures()
+                                        val examQuestions = getExamQuestions()
+                                        val exam = Exam(
+                                            id = Random(102192124).nextLong(100_000_000L..1_000_000_000L),
+                                            name = examName ?: return@Button,
+                                            document = examDocument,
+                                            features = examFeatures,
+                                            time = examTime,
+                                            correctionMode = examCorrectionMode,
+                                            questions = examQuestions,
+                                            description = examDescription
+                                        )
+                                        val list = (answerSheetState.exams ?: Exams()).list
+                                        list.add(exam)
+                                        mainViewModel.exams = Exams(list)
+                                        mainViewModel.currentExam = exam
+                                        onPageChanged(App.Page.ExamRoom)
+                                    } else {
+                                        scope.launch {
+                                            snackBarHostState.showSnackbar(
+                                                "لطفاً خطای زیر را برطرف کنید:\n$error",
+                                                withDismissAction = true
+                                            )
+                                        }
+                                    }
+                                }) {
+                                Text(
+                                    "ورود به اتاق آزمون",
+                                    style = LocalTextStyle.current.copy(fontWeight = FontWeight.Bold)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            FilledIconButton(onClick = {
                                 val (result, error) = checkExam()
                                 if (result) {
-                                    onPageChanged(App.Page.ExamRoom)
+                                    examScheduleSelectionDateWanted.value = true
                                 } else {
                                     scope.launch {
                                         snackBarHostState.showSnackbar(
@@ -786,13 +968,6 @@ fun NewExamPage(
                                     }
                                 }
                             }) {
-                                Text(
-                                    "ورود به اتاق آزمون",
-                                    style = LocalTextStyle.current.copy(fontWeight = FontWeight.Bold)
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            FilledIconButton(onClick = { /*TODO*/ }) {
                                 Icon(
                                     painter = painterResource(id = R.drawable.exam_schedule),
                                     contentDescription = "Schedule Exam"
@@ -801,6 +976,91 @@ fun NewExamPage(
                         }
                     }
                 }
+            }
+            Box {
+                LockedDirection(LayoutDirection.Ltr) {
+                    JalaliDatePickerDialog(
+                        examScheduleSelectionDateWanted,
+                        onConfirm = {
+                            if (examScheduleSelectedDate != null)
+                                examScheduleSelectionTimeWanted = true
+                            else
+                                examScheduleSelectionDateWanted.value = true
+                        },
+                        onSelectDay = { calendar ->
+                            val currentDate = JalaliCalendar(Date())
+                            if (calendar.toGregorian()
+                                    .after(currentDate.toGregorian()) || calendar.toGregorian()
+                                    .equals(currentDate.toGregorian())
+                            ) {
+                                examScheduleSelectedJalaliCalendar = calendar
+                                examScheduleSelectedDate = calendar.toGregorian().time
+                            } else {
+                                scope.launch {
+                                    snackBarHostState.showSnackbar("تاریخ شروع آزمون را درست انتخاب کنید.")
+                                }
+                            }
+                        },
+                        backgroundColor = MaterialTheme.colorScheme.surfaceContainer
+                    )
+                }
+                TimeSelection(
+                    visibility = examScheduleSelectionTimeWanted,
+                    padding = padding,
+                    onDismissRequested = { examScheduleSelectionTimeWanted = false },
+                    onConfirmRequest = { timeState ->
+                        if (examScheduleSelectedDate != null) {
+                            examScheduleSelectionTimeWanted = false
+                            examScheduledSucceed = true
+                            examScheduleSelectedDate =
+                                Date(examScheduleSelectedDate!!.time + (timeState.hour.toLong() * 3_600_000) + (timeState.minute.toLong() * 60_000))
+                        }
+                    }
+                )
+            }
+            if (!examScheduleSelectionTimeWanted && !examScheduleSelectionDateWanted.value && examScheduledSucceed && examScheduleSelectedDate != null) {
+                MaterialAlertDialog(
+                    icon = {
+                        Icon(
+                            painter = painterResource(id = R.drawable.exam_schedule_bold),
+                            contentDescription = "Exam Schedule"
+                        )
+                    },
+                    title = "تأیید زمان بندی",
+                    message = "آیا این زمان بندی \n${examScheduleSelectedDate} برای آزمون ${examName?.name} مورد پذیرش است؟",
+                    confirmText = "بله",
+                    onConfirm = {
+                        val examSchedule = ExamWhen(scheduled = examScheduleSelectedDate)
+                        val examTime: ExamTime? = getExamTime()
+                        val examFeatures = getExamFeatures()
+                        val examQuestions = getExamQuestions()
+                        val exam = Exam(
+                            id = Random(102192124).nextLong(100_000_000L..1_000_000_000L),
+                            name = examName ?: return@MaterialAlertDialog,
+                            status = App.ExamStatus.Scheduled,
+                            document = examDocument,
+                            features = examFeatures,
+                            time = examTime,
+                            correctionMode = examCorrectionMode,
+                            questions = examQuestions,
+                            whenn = examSchedule,
+                            description = examDescription
+                        )
+                        val list = (answerSheetState.exams ?: Exams()).list
+                        list.add(exam)
+                        mainViewModel.exams = Exams(list)
+                        Toast.makeText(
+                            mainViewModel.context,
+                            "آزمون زمانبندی شد.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        onPageChanged(App.Page.Home)
+                    },
+                    onDismiss = {
+                        examScheduleSelectedDate = null
+                        examScheduledSucceed = false
+                    }
+                )
             }
             if (examNameSelectionWanted) {
                 ExamNameSelection(examName = examName, onDismissRequest = {
@@ -814,47 +1074,23 @@ fun NewExamPage(
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
+@Preview
 @Composable
-fun ExamNameSelection(
-    examName: ExamName? = null, onDismissRequest: () -> Unit, onExamNameSelected: (ExamName) -> Unit
-) {
-    ModalBottomSheet(onDismissRequest = onDismissRequest) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp, horizontal = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(text = "انتخاب کنید", style = MaterialTheme.typography.displayMedium)
-            Spacer(modifier = Modifier.height(16.dp))
-            LockedDirection(LayoutDirection.Rtl) {
-                LazyVerticalGrid(columns = GridCells.Adaptive(100.dp)) {
-                    items(testExamNames) {
-                        if (it == examName) {
-                            Button(modifier = Modifier
-                                .padding(vertical = 8.dp, horizontal = 8.dp)
-                                .clickable(false) {}, onClick = { /* Do nothing */ }) {
-                                Text(text = it.name)
-                            }
-                        } else {
-                            FilledTonalButton(modifier = Modifier.padding(
-                                vertical = 8.dp, horizontal = 8.dp
-                            ), onClick = { onExamNameSelected(it); onDismissRequest() }) {
-                                Text(text = it.name, color = MaterialTheme.colorScheme.primary)
-                            }
-                        }
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-        }
+fun TimeSelectionPreview() {
+    AnswerSheetTheme {
+        TimeSelection(
+            true,
+            onDismissRequested = { },
+            onConfirmRequest = { })
     }
 }
 
-@Preview(showBackground = true)
+@Preview
 @Composable
 fun NewExamPagePreview() {
     AnswerSheetTheme {
-        NewExamPage {}
+        NewExamPage {
+
+        }
     }
 }

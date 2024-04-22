@@ -16,38 +16,6 @@ import androidx.compose.ui.unit.dp
 
 object Symbols {
     object Default {
-        val PasswordVisibility: ImageVector
-            @Composable get() = rememberVisibility()
-        val PasswordInvisibility: ImageVector
-            @Composable get() = rememberVisibilityOff()
-        val ShowReports: ImageVector
-            @Composable get() = rememberChartData()
-        val AccountSettings: ImageVector
-            @Composable get() = rememberSettingsAccountBox()
-        val ResetPassword: ImageVector
-            @Composable get() = rememberKey()
-        val Logout: ImageVector
-            @Composable get() = rememberLogout()
-        val Warning: ImageVector
-            @Composable get() = rememberWarning()
-        val Average: ImageVector
-            @Composable get() = rememberAverage()
-        val Rates: ImageVector
-            @Composable get() = rememberRates()
-        val Indexes: ImageVector
-            @Composable get() = rememberIndexesTable()
-        val Delete: ImageVector
-            @Composable get() = rememberDelete()
-        val DateRange: ImageVector
-            @Composable get() = rememberDateRange()
-        val TrendingUp: ImageVector
-            @Composable get() = rememberTrendingUp()
-        val Calendar: ImageVector
-            @Composable get() = rememberCalendarMonth()
-        val Payments: ImageVector
-            @Composable get() = rememberPayments()
-        val Chart: ImageVector
-            @Composable get() = rememberChart()
         val PermissionNeeded: ImageVector
             @Composable get() = rememberPermissionNeeded()
     }

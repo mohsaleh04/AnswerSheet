@@ -26,14 +26,19 @@ import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -41,18 +46,25 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TimePickerState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -85,6 +97,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ir.saltech.answersheet.App
 import ir.saltech.answersheet.R
+import ir.saltech.answersheet.dto.models.ExamName
+import ir.saltech.answersheet.dto.models.testExamNames
 import ir.saltech.answersheet.dto.ui.Digit
 import ir.saltech.answersheet.dto.ui.ExamTypesItem
 import ir.saltech.answersheet.dto.ui.MainNavItem
@@ -239,7 +253,7 @@ fun LockedDirection(
 
 @Composable
 fun MaterialAlertDialog(
-    icon: ImageVector,
+    icon: @Composable () -> Unit,
     title: String,
     message: String,
     confirmText: String,
@@ -249,11 +263,7 @@ fun MaterialAlertDialog(
 ) {
     var dismiss by remember { mutableStateOf(false) }
     if (!dismiss) {
-        AlertDialog(icon = {
-            Icon(
-                imageVector = icon, contentDescription = null
-            )
-        }, onDismissRequest = {
+        AlertDialog(icon = icon, onDismissRequest = {
             dismiss = true
             onDismiss()
         }, title = {
@@ -434,35 +444,6 @@ fun ExamNavCard(examTypeItem: ExamTypesItem, onClick: () -> Unit) {
 }
 
 @Composable
-fun SettingsOption(icon: Int, title: String, showDivider: Boolean = true, onClick: () -> Unit) {
-    Row(modifier = Modifier
-        .padding(top = 3.dp)
-        .clickable { onClick() }) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp),
-            horizontalArrangement = Arrangement.Start,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                modifier = Modifier
-                    .padding(start = 8.dp)
-                    .width(35.dp)
-                    .height(35.dp),
-                painter = painterResource(id = icon),
-                contentDescription = null
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-            Text(text = title, style = MaterialTheme.typography.bodyLarge.copy(fontSize = 18.sp))
-        }
-    }
-    if (showDivider) {
-        HorizontalDivider(modifier = Modifier.padding(vertical = 3.dp, horizontal = 24.dp))
-    }
-}
-
-@Composable
 fun Page(
     which: App.Page, mainViewModel: MainViewModel = viewModel(), content: @Composable () -> Unit
 ) {
@@ -547,6 +528,153 @@ fun GroupBox(
                 icon()
             }
             Spacer(modifier = Modifier.width(10.dp))
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TimeSelection(
+    visibility: Boolean,
+    onDismissRequested: () -> Unit,
+    onConfirmRequest: (TimePickerState) -> Unit,
+    initialHour: Int = 0,
+    initialMinute: Int = 0,
+    padding: PaddingValues = PaddingValues(0.dp)
+) {
+    val state = rememberTimePickerState(initialHour = initialHour, initialMinute = initialMinute)
+    LockedDirection(LayoutDirection.Ltr) {
+        Box(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            AnimatedVisibility(visible = visibility, enter = fadeIn(), exit = fadeOut()) {
+                Column(modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.3f))
+                    .clickable {
+                        // Do nothing
+                    }
+                ) {}
+            }
+            AnimatedVisibility(
+                visible = visibility,
+                enter = fadeIn() + slideInVertically { it / 25 },
+                exit = fadeOut() + slideOutVertically { -it / 25 }) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Card(
+                        modifier = Modifier
+                            .padding(padding)
+                            .padding(16.dp),
+                        colors = CardDefaults.cardColors().copy(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                        shape = MaterialTheme.shapes.large
+                    ) {
+                        Column {
+                            TimePicker(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                state = state
+                            )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 16.dp, horizontal = 24.dp)
+                            ) {
+                                Button(
+                                    onClick = { onConfirmRequest(state) },
+                                    shape = MaterialTheme.shapes.small.copy(
+                                        CornerSize(15.dp)
+                                    )
+                                ) {
+                                    Text("انجام شد")
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                TextButton(
+                                    onClick = { onDismissRequested() },
+                                    shape = MaterialTheme.shapes.small.copy(
+                                        CornerSize(15.dp)
+                                    )
+                                ) {
+                                    Text("لغو")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+
+@Composable
+fun SettingsOption(icon: Int, title: String, showDivider: Boolean = true, onClick: () -> Unit) {
+    Row(modifier = Modifier
+        .padding(top = 3.dp)
+        .clickable { onClick() }) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            horizontalArrangement = Arrangement.Start,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                modifier = Modifier
+                    .padding(start = 8.dp)
+                    .width(35.dp)
+                    .height(35.dp),
+                painter = painterResource(id = icon),
+                contentDescription = null
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Text(text = title, style = MaterialTheme.typography.bodyLarge.copy(fontSize = 18.sp))
+        }
+    }
+    if (showDivider) {
+        HorizontalDivider(modifier = Modifier.padding(vertical = 3.dp, horizontal = 24.dp))
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ExamNameSelection(
+    examName: ExamName? = null, onDismissRequest: () -> Unit, onExamNameSelected: (ExamName) -> Unit
+) {
+    ModalBottomSheet(onDismissRequest = onDismissRequest) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp, horizontal = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(text = "انتخاب کنید", style = MaterialTheme.typography.displayMedium)
+            Spacer(modifier = Modifier.height(16.dp))
+            LockedDirection(LayoutDirection.Rtl) {
+                LazyVerticalGrid(columns = GridCells.Adaptive(100.dp)) {
+                    items(testExamNames) {
+                        if (it == examName) {
+                            Button(modifier = Modifier
+                                .padding(vertical = 8.dp, horizontal = 8.dp)
+                                .clickable(false) {}, onClick = { /* Do nothing */ }) {
+                                Text(text = it.name)
+                            }
+                        } else {
+                            FilledTonalButton(modifier = Modifier.padding(
+                                vertical = 8.dp, horizontal = 8.dp
+                            ), onClick = { onExamNameSelected(it); onDismissRequest() }) {
+                                Text(text = it.name, color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }

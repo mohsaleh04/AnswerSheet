@@ -71,6 +71,7 @@ dependencies {
     implementation(libs.rx.android)
     implementation(libs.jalali.calendar)
     implementation(libs.jalali.datepicker)
+    implementation(libs.compose.shimmer)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

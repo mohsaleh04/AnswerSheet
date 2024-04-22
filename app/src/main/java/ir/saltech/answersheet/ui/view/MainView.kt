@@ -44,6 +44,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,14 +61,22 @@ import ir.saltech.answersheet.R
 import ir.saltech.answersheet.dto.models.User
 import ir.saltech.answersheet.dto.ui.MainNavItem
 import ir.saltech.answersheet.dto.ui.examTypesItems
+import ir.saltech.answersheet.ui.view.pages.ExamRoomPage
+import ir.saltech.answersheet.ui.view.pages.NewExamPage
+import ir.saltech.answersheet.utils.shimmerLoader
 import ir.saltech.answersheet.viewmodels.MainViewModel
+import kotlinx.coroutines.launch
+import rx.Observable
+import rx.android.schedulers.AndroidSchedulers
+import java.util.concurrent.TimeUnit
 
 
 @Composable
 fun Launcher(mainViewModel: MainViewModel = viewModel()) {
     mainViewModel.context = LocalContext.current
+    mainViewModel.exams = App.getExams(LocalContext.current)
     val mainUiState by mainViewModel.uiState.collectAsState()
-    BackHandler (mainUiState.page != App.Page.Home) {
+    BackHandler(mainUiState.page != App.Page.Home) {
         mainViewModel.onBackPressed(mainUiState.page) { mainViewModel.page = it }
     }
     Page(App.Page.Home) {
@@ -81,15 +90,13 @@ fun Launcher(mainViewModel: MainViewModel = viewModel()) {
         }
     }
     Page(App.Page.ExamRoom) {
-
+        ExamRoomPage()
     }
 }
 
 @Composable
 fun MainView(
-    page: App.Page,
-    user: User? = null,
-    onPageChanged: (App.Page) -> Unit
+    page: App.Page, user: User? = null, onPageChanged: (App.Page) -> Unit
 ) {
     var selectedMainPage: MainNavItem by remember { mutableStateOf(MainNavItem.ExamRoom) }
     Scaffold(modifier = Modifier.fillMaxSize(), bottomBar = {
@@ -280,6 +287,7 @@ fun SettingsView(
 
 @Composable
 fun ExamsNavView(padding: PaddingValues, page: App.Page, onPageChanged: (App.Page) -> Unit) {
+    val scope = rememberCoroutineScope()
     Column(
         modifier = Modifier
             .padding(padding)
@@ -313,9 +321,10 @@ fun ExamsNavView(padding: PaddingValues, page: App.Page, onPageChanged: (App.Pag
                 }
             }
             item {
+                var loadNewExam by remember { mutableStateOf(false) }
                 FilledTonalButton(
-                    modifier = Modifier.padding(4.dp),
-                    onClick = { onPageChanged(App.Page.NewExam) },
+                    modifier = Modifier.padding(4.dp).shimmerLoader(loadNewExam),
+                    onClick = { loadNewExam = true; onPageChanged(App.Page.NewExam) },
                     colors = ButtonColors(
                         MaterialTheme.colorScheme.tertiaryContainer,
                         MaterialTheme.colorScheme.onTertiaryContainer,

@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import ir.saltech.answersheet.ui.theme.AnswerSheetTheme
 import ir.saltech.answersheet.ui.view.Launcher
+import ir.saltech.answersheet.ui.view.pages.NewExamPage
 
 @Preview(
     showBackground = true,
@@ -14,5 +15,13 @@ import ir.saltech.answersheet.ui.view.Launcher
 fun LauncherPreview() {
     AnswerSheetTheme {
         Launcher()
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun NewExamPagePreview() {
+    AnswerSheetTheme {
+        NewExamPage {}
     }
 }

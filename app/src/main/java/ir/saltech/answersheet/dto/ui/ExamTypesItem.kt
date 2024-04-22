@@ -8,7 +8,7 @@ val examTypesItems = listOf(
     ExamTypesItem.Finished,
     ExamTypesItem.Correcting,
     ExamTypesItem.Scheduled,
-    ExamTypesItem.Draft
+    ExamTypesItem.Draft // Draft is Creating
 )
 
 sealed class ExamTypesItem(
